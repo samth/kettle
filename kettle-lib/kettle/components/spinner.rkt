@@ -10,7 +10,8 @@
 ;; Spinner component - reusable animated spinner
 
 (require racket/list
-         "../private/protocol.rkt")
+         "../private/protocol.rkt"
+         "../private/image.rkt")
 
 (provide (struct-out spinner)
          make-spinner
@@ -28,12 +29,7 @@
          spinner-monkey
          spinner-meter
          spinner-hamburger
-         spinner-ellipsis
-
-         ;; Operations
-         spinner-init
-         spinner-update
-         spinner-view)
+         spinner-ellipsis)
 
 ;;; Predefined spinner frame lists
 (define spinner-line '("|" "/" "-" "\\"))
@@ -52,41 +48,30 @@
 ;;; Tick message
 (struct spinner-tick-msg msg (id) #:transparent)
 
-;;; Spinner model
-(struct spinner
-  (frames fps [frame-index #:mutable] id)
-  #:transparent)
-
-(define (make-spinner #:frames [frames spinner-line]
-                      #:fps [fps 0.1])
-  (spinner frames fps 0 (current-inexact-milliseconds)))
-
-;;; Component operations
-
-(define (spinner-init s)
-  "Initialize the spinner and return a tick command."
-  (lambda ()
-    (sleep (spinner-fps s))
-    (spinner-tick-msg (spinner-id s))))
-
-(define (spinner-update s msg)
-  "Update the spinner. Returns (values new-spinner cmd)."
-  (cond
-    [(and (spinner-tick-msg? msg)
-          (= (spinner-tick-msg-id msg) (spinner-id s)))
-     (set-spinner-frame-index! s
-                               (modulo (add1 (spinner-frame-index s))
-                                       (length (spinner-frames s))))
+;;; Spinner model -- implements gen:tea-model
+(struct spinner (frames fps frame-index id)
+  #:transparent
+  #:methods gen:tea-model
+  [(define (init s)
      (values s
              (lambda ()
                (sleep (spinner-fps s))
-               (spinner-tick-msg (spinner-id s))))]
-    [else (values s #f)]))
+               (spinner-tick-msg (spinner-id s)))))
+   (define (update s msg)
+     (cond
+       [(and (spinner-tick-msg? msg) (= (spinner-tick-msg-id msg) (spinner-id s)))
+        (define new-index (modulo (add1 (spinner-frame-index s)) (length (spinner-frames s))))
+        (values (struct-copy spinner s [frame-index new-index])
+                (lambda ()
+                  (sleep (spinner-fps s))
+                  (spinner-tick-msg (spinner-id s))))]
+       [else (values s #f)]))
+   (define (view s)
+     (define frames (spinner-frames s))
+     (define index (spinner-frame-index s))
+     (if (< index (length frames))
+         (text (list-ref frames index))
+         empty-image))])
 
-(define (spinner-view s)
-  "Render the current spinner frame."
-  (define frames (spinner-frames s))
-  (define index (spinner-frame-index s))
-  (if (< index (length frames))
-      (list-ref frames index)
-      ""))
+(define (make-spinner #:frames [frames spinner-line] #:fps [fps 0.1])
+  (spinner frames fps 0 (current-inexact-milliseconds)))

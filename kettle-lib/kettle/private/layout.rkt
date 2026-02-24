@@ -11,6 +11,7 @@
 
 (require racket/string
          racket/list
+         racket/math
          "style.rkt")
 
 (provide ;; Position constants

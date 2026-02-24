@@ -66,7 +66,12 @@
          text-height
          text-size
          visible-length
-         split-string-by-newline)
+         char-display-width
+         split-string-by-newline
+
+         ;; Bidi
+         bidi-isolate
+         bidi-isolate-ltr)
 
 (define ESC "\e")
 
@@ -334,7 +339,7 @@
     (when (< i len)
       (define ch (string-ref str i))
       (cond
-        [(char=? ch #\escape)
+        [(char=? ch #\u001B)
          (set! i (add1 i))
          (when (and (< i len) (char=? (string-ref str i) #\[))
            (set! i (add1 i))
@@ -593,7 +598,7 @@
       (define ch (string-ref text i))
       (cond
         ;; ANSI escape
-        [(char=? ch #\escape)
+        [(char=? ch #\u001B)
          (write-char ch out)
          (set! i (add1 i))
          (when (and (< i len) (char=? (string-ref text i) #\[))
@@ -728,7 +733,7 @@
          (set! out (append out (list (list 'newline "\n"))))
          (set! i (add1 i))]
         ;; ANSI escape
-        [(char=? ch #\escape)
+        [(char=? ch #\u001B)
          (define j (add1 i))
          (let inner ()
            (when (and (< j n) (not (char=? (string-ref str j) #\m)))
@@ -754,7 +759,7 @@
                       (let ([c (string-ref str j)])
                         (and (not (whitespace? c))
                              (not (char=? c #\newline))
-                             (not (char=? c #\escape)))))
+                             (not (char=? c #\u001B)))))
              (set! j (add1 j))
              (inner)))
          (set! out (append out (list (list 'word (substring str i j)))))

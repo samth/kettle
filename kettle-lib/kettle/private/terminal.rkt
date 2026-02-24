@@ -11,6 +11,7 @@
 
 (require racket/system
          racket/port
+         racket/list
          racket/string
          "errors.rkt")
 
@@ -47,7 +48,7 @@
       (let ()
         (define-values (in out) (values (open-input-file "/dev/tty")
                                         (open-output-file "/dev/tty" #:exists 'append)))
-        (define combined (make-custom-input-port
+        (define combined (make-input-port
                           "tty-in"
                           (lambda (buf start end)
                             (let ([b (read-bytes-avail! buf in start end)])

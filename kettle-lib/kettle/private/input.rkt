@@ -10,6 +10,7 @@
 ;; Input handling and key event processing
 
 (require racket/match
+         racket/list
          racket/string
          "protocol.rkt")
 
@@ -51,7 +52,7 @@
     (define code (char->integer ch))
     (cond
       ;; Escape sequences
-      [(char=? ch #\escape)
+      [(char=? ch #\u001B)
        (parse-escape-start port)]
       ;; ASCII DEL (127) is commonly sent for backspace
       [(= code 127)
@@ -258,7 +259,7 @@
     (define ch (read-char-blocking port))
     (when ch
       (cond
-        [(char=? ch #\escape)
+        [(char=? ch #\u001B)
          (define c1 (read-char-blocking port))
          (cond
            [(and c1 (char=? c1 #\[))

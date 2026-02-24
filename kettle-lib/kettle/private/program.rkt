@@ -13,12 +13,14 @@
          racket/list
          racket/string
          racket/async-channel
+         (for-syntax racket/base racket/list racket/syntax)
          (only-in racket/system system)
          "protocol.rkt"
          "terminal.rkt"
          "input.rkt"
          "renderer.rkt"
-         "errors.rkt")
+         "errors.rkt"
+         "subscriptions.rkt")
 
 (provide (struct-out program)
          make-program
@@ -28,7 +30,7 @@
          program-stop
          program-run
          current-program
-         defprogram)
+         define-tea-program)
 
 (define current-program (make-parameter #f))
 
@@ -40,7 +42,9 @@
    [input-paused? #:mutable]
    options
    [tty-stream #:mutable]
-   [input-thread #:mutable])
+   [input-thread #:mutable]
+   [active-subs #:mutable]      ;; list of current subscription specs
+   [sub-stoppers #:mutable])    ;; hash: subscription-key -> stopper thunk
   #:transparent)
 
 (define (make-program model
@@ -59,6 +63,8 @@
            opts
            #f  ; tty-stream
            #f  ; input-thread
+           '() ; active-subs
+           (make-hash) ; sub-stoppers
            ))
 
 (define (program-send p m)
@@ -126,10 +132,14 @@
        ;; Render initial view
        (render! (program-renderer* p) (view (program-model p)))
 
+       ;; Start initial subscriptions
+       (sync-subscriptions! p)
+
        ;; Main event loop
        (event-loop p)
 
        ;; Shutdown
+       (stop-all-subscriptions! p)
        (set-program-running?! p #f)
        (kill-thread input-thd))
 
@@ -162,22 +172,56 @@
   "Combine consecutive scroll events in the same direction."
   (if (null? messages)
       '()
-      (let ([result '()]
-            [prev-scroll #f])
-        (for ([m (in-list messages)])
-          (cond
-            [(mouse-scroll-event? m)
-             (define dir (mouse-scroll-event-direction m))
-             (if (and prev-scroll (eq? dir (mouse-scroll-event-direction prev-scroll)))
-                 (set-mouse-scroll-event-count! prev-scroll
-                                                (add1 (mouse-scroll-event-count prev-scroll)))
-                 (begin
-                   (set! result (append result (list m)))
-                   (set! prev-scroll m)))]
-            [else
-             (set! result (append result (list m)))
-             (set! prev-scroll #f)]))
-        result)))
+      (let loop ([msgs messages] [result '()] [prev-scroll #f])
+        (cond
+          [(null? msgs)
+           (reverse result)]
+          [else
+           (define m (car msgs))
+           (define rest-msgs (cdr msgs))
+           (cond
+             [(mouse-scroll-event? m)
+              (define dir (mouse-scroll-event-direction m))
+              (if (and prev-scroll (eq? dir (mouse-scroll-event-direction prev-scroll)))
+                  ;; Replace the previous scroll event with an updated count
+                  (let ([updated (mouse-scroll-event
+                                  (mouse-event-x prev-scroll)
+                                  (mouse-event-y prev-scroll)
+                                  (mouse-event-shift prev-scroll)
+                                  (mouse-event-alt prev-scroll)
+                                  (mouse-event-ctrl prev-scroll)
+                                  dir
+                                  (add1 (mouse-scroll-event-count prev-scroll)))])
+                    (loop rest-msgs (cons updated (cdr result)) updated))
+                  (loop rest-msgs (cons m result) m))]
+             [else
+              (loop rest-msgs (cons m result) #f)])]))))
+
+(define (sync-subscriptions! p)
+  "Evaluate the model's subscriptions and start/stop as needed."
+  (define new-subs (subscriptions (program-model p)))
+  (define old-subs (program-active-subs p))
+  (define-values (added removed _kept) (diff-subscriptions old-subs new-subs))
+  ;; Stop removed subscriptions
+  (for ([sub (in-list removed)])
+    (define key (subscription-key sub))
+    (define stopper (hash-ref (program-sub-stoppers p) key #f))
+    (when stopper (stop-subscription stopper))
+    (hash-remove! (program-sub-stoppers p) key))
+  ;; Start added subscriptions
+  (for ([sub (in-list added)])
+    (define key (subscription-key sub))
+    (define stopper (start-subscription sub (lambda (m) (program-send p m))))
+    (when (procedure? stopper)
+      (hash-set! (program-sub-stoppers p) key stopper)))
+  (set-program-active-subs! p new-subs))
+
+(define (stop-all-subscriptions! p)
+  "Stop all active subscriptions."
+  (for ([(key stopper) (in-hash (program-sub-stoppers p))])
+    (stop-subscription stopper))
+  (hash-clear! (program-sub-stoppers p))
+  (set-program-active-subs! p '()))
 
 (define (handle-messages-batch p messages)
   "Process multiple messages, rendering only once at the end."
@@ -207,7 +251,9 @@
 
   ;; Render once
   (when should-render
-    (render! (program-renderer* p) (view (program-model p)))))
+    (render! (program-renderer* p) (view (program-model p)))
+    ;; Re-evaluate subscriptions after model changes
+    (sync-subscriptions! p)))
 
 (define (run-command p cmd)
   "Execute a command."
@@ -315,18 +361,73 @@
                       (sleep 0.001)))))
           (loop))))))
 
-;;; Convenience macro
-(define-syntax-rule (defprogram name
-                      #:fields ([field-name field-default] ...)
-                      #:init init-body
-                      #:update update-body
-                      #:view view-body)
-  (begin
-    (struct name (field-name ...)
-      #:transparent
-      #:mutable
-      #:methods gen:tea-model
-      [(define (init model) init-body)
-       (define (update model msg) update-body)
-       (define (view model) view-body)])
-    (void)))
+;;; Convenience macro -- generates immutable structs with optional clauses.
+;;
+;; Usage:
+;;   (define-tea-program counter
+;;     #:fields ([count 0])
+;;     #:view
+;;     (lambda (self) (text (format "Count: ~a" (counter-count self)))))
+;;
+;; Only #:view is required. Defaults:
+;;   #:init     -> (lambda (self) (values self #f))
+;;   #:update   -> (lambda (self msg) (values self #f))
+(define-syntax (define-tea-program stx)
+  (define (keyword-stx? s kw)
+    (and (keyword? (syntax-e s)) (equal? (syntax-e s) kw)))
+  (syntax-case stx ()
+    [(_ name clause ...)
+     (let ()
+       (define clauses (syntax->list #'(clause ...)))
+       ;; Parse keyword clauses
+       (define fields-stx #f)
+       (define init-stx #f)
+       (define update-stx #f)
+       (define view-stx #f)
+       (let loop ([cs clauses])
+         (cond
+           [(null? cs) (void)]
+           [(keyword-stx? (car cs) '#:fields)
+            (set! fields-stx (cadr cs))
+            (loop (cddr cs))]
+           [(keyword-stx? (car cs) '#:init)
+            (set! init-stx (cadr cs))
+            (loop (cddr cs))]
+           [(keyword-stx? (car cs) '#:update)
+            (set! update-stx (cadr cs))
+            (loop (cddr cs))]
+           [(keyword-stx? (car cs) '#:view)
+            (set! view-stx (cadr cs))
+            (loop (cddr cs))]
+           [else
+            (raise-syntax-error 'define-tea-program
+                                "unknown clause"
+                                (car cs))]))
+       (unless view-stx
+         (raise-syntax-error 'define-tea-program
+                             "missing required #:view clause" stx))
+       ;; Parse field specs
+       (define field-pairs
+         (if fields-stx
+             (map (lambda (fp)
+                    (syntax-case fp ()
+                      [(fname fdefault) (list #'fname #'fdefault)]))
+                  (syntax->list fields-stx))
+             '()))
+       (define field-names (map car field-pairs))
+       (define field-defaults (map cadr field-pairs))
+       (with-syntax ([(fname ...) field-names]
+                     [(fdefault ...) field-defaults]
+                     [make-name (format-id #'name "make-~a" #'name)]
+                     [init-expr (or init-stx #'(lambda (self) (values self #f)))]
+                     [update-expr (or update-stx #'(lambda (self msg) (values self #f)))]
+                     [view-expr view-stx])
+         #'(begin
+             (struct name (fname ...)
+               #:transparent
+               #:methods gen:tea-model
+               [(define (init model) (init-expr model))
+                (define (update model msg) (update-expr model msg))
+                (define (view model) (view-expr model))])
+             (define (make-name #:fname [fname fdefault] ...)
+               (name fname ...)))))]))

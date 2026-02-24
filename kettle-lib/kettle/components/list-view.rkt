@@ -10,90 +10,80 @@
 ;; List component - reusable scrollable list
 
 (require racket/list
-         "../private/protocol.rkt")
+         "../private/protocol.rkt"
+         "../private/image.rkt")
 
 (provide (struct-out list-view)
          make-list-view
-         list-view-init
-         list-view-update
-         list-view-render
-         list-view-move-up!
-         list-view-move-down!
+         list-view-move-up
+         list-view-move-down
          list-view-get-selected
-         list-view-set-items!)
+         list-view-set-items)
 
-;;; List model
-(struct list-view
-  ([items #:mutable]
-   [selected #:mutable]
-   height
-   [offset #:mutable])
-  #:transparent)
+;;; List model -- implements gen:tea-model
+(struct list-view (items selected height offset)
+  #:transparent
+  #:methods gen:tea-model
+  [(define (init lv)
+     (values lv #f))
+   (define (update lv msg)
+     (if (key-msg? msg)
+         (let ([key (key-msg-key msg)])
+           (cond
+             [(or (eq? key 'up) (and (char? key) (char=? key #\k)))
+              (values (list-view-move-up lv) #f)]
+             [(or (eq? key 'down) (and (char? key) (char=? key #\j)))
+              (values (list-view-move-down lv) #f)]
+             [else (values lv #f)]))
+         (values lv #f)))
+   (define (view lv)
+     (define items (list-view-items lv))
+     (define sel (list-view-selected lv))
+     (define h (list-view-height lv))
+     (define off (list-view-offset lv))
+     (define start (min off (max 0 (- (length items) h))))
+     (define end (min (length items) (+ off h)))
+     (define visible-items (take (drop items start) (- end start)))
+     (apply vcat
+            'left
+            (for/list ([item (in-list visible-items)]
+                       [i (in-naturals start)])
+              (text (format "~a ~a" (if (= i sel) ">" " ") item)))))])
 
-(define (make-list-view #:items [items '()]
-                        #:height [height 10])
+(define (make-list-view #:items [items '()] #:height [height 10])
   (list-view items 0 height 0))
 
-;;; Component operations
+;;; Functional update helpers (return new list-view)
 
-(define (list-view-init lv)
-  (values lv #f))
-
-(define (list-view-update lv msg)
-  (if (key-msg? msg)
-      (let ([key (key-msg-key msg)])
-        (cond
-          ;; Move up
-          [(or (eq? key 'up) (and (char? key) (char=? key #\k)))
-           (list-view-move-up! lv)
-           (values lv #f)]
-          ;; Move down
-          [(or (eq? key 'down) (and (char? key) (char=? key #\j)))
-           (list-view-move-down! lv)
-           (values lv #f)]
-          [else (values lv #f)]))
-      (values lv #f)))
-
-(define (list-view-render lv)
-  (define items (list-view-items lv))
-  (define selected (list-view-selected lv))
-  (define h (list-view-height lv))
+(define (list-view-move-up lv)
+  (define sel (list-view-selected lv))
   (define off (list-view-offset lv))
-  (define start (min off (max 0 (- (length items) h))))
-  (define end (min (length items) (+ off h)))
-  (define visible-items (take (drop items start) (- end start)))
+  (if (> sel 0)
+      (let* ([new-sel (sub1 sel)]
+             [new-off (if (< new-sel off) new-sel off)])
+        (struct-copy list-view lv [selected new-sel] [offset new-off]))
+      lv))
 
-  (apply string-append
-         (for/list ([item (in-list visible-items)]
-                    [i (in-naturals start)])
-           (format "~a ~a\n"
-                   (if (= i selected) ">" " ")
-                   item))))
-
-;;; Helper functions
-
-(define (list-view-move-up! lv)
-  (when (> (list-view-selected lv) 0)
-    (set-list-view-selected! lv (sub1 (list-view-selected lv)))
-    (when (< (list-view-selected lv) (list-view-offset lv))
-      (set-list-view-offset! lv (list-view-selected lv)))))
-
-(define (list-view-move-down! lv)
+(define (list-view-move-down lv)
   (define items (list-view-items lv))
-  (when (< (list-view-selected lv) (sub1 (length items)))
-    (set-list-view-selected! lv (add1 (list-view-selected lv)))
-    (define max-visible (+ (list-view-offset lv) (list-view-height lv)))
-    (when (>= (list-view-selected lv) max-visible)
-      (set-list-view-offset! lv (add1 (list-view-offset lv))))))
+  (define sel (list-view-selected lv))
+  (define off (list-view-offset lv))
+  (define h (list-view-height lv))
+  (if (< sel (sub1 (length items)))
+      (let* ([new-sel (add1 sel)]
+             [max-visible (+ off h)]
+             [new-off (if (>= new-sel max-visible)
+                          (add1 off)
+                          off)])
+        (struct-copy list-view lv [selected new-sel] [offset new-off]))
+      lv))
 
 (define (list-view-get-selected lv)
   (define items (list-view-items lv))
-  (define selected (list-view-selected lv))
-  (if (and (>= selected 0) (< selected (length items)))
-      (list-ref items selected)
+  (define sel (list-view-selected lv))
+  (if (and (>= sel 0) (< sel (length items)))
+      (list-ref items sel)
       #f))
 
-(define (list-view-set-items! lv items)
-  (set-list-view-items! lv items)
-  (set-list-view-selected! lv 0)
-  (set-list-view-offset! lv 0))
+(define (list-view-set-items lv new-items)
+  (struct-copy list-view lv [items new-items] [selected 0] [offset 0]))

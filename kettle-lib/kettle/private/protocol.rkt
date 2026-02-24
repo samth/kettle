@@ -17,6 +17,7 @@
          init
          update
          view
+         subscriptions
 
          ;; Messages
          (struct-out msg)
@@ -50,7 +51,10 @@
          (struct-out exec-cmd)
 
          ;; Key string utility
-         key-string)
+         key-string
+
+         ;; Component composition
+         delegate)
 
 ;;; TEA Model generic interface
 (define-generics tea-model
@@ -58,17 +62,20 @@
   (init tea-model)
   ;; Handle a message. Returns (values new-model cmd-or-#f).
   (update tea-model msg)
-  ;; Render the model to a string.
+  ;; Render the model to an image (or string for legacy).
   (view tea-model)
+  ;; Return a list of subscription specs. Evaluated after each update.
+  (subscriptions tea-model)
   #:defaults
   ([init (lambda (m) (values m #f))]
    [update (lambda (m msg) (values m #f))]
-   [view (lambda (m) "")]))
+   [view (lambda (m) "")]
+   [subscriptions (lambda (m) '())]))
 
 ;;; Messages
 (struct msg () #:transparent)
 (struct quit-msg msg () #:transparent)
-(struct key-msg msg (key [alt #:mutable] [ctrl #:mutable]) #:transparent)
+(struct key-msg msg (key alt ctrl) #:transparent)
 (struct paste-msg msg (text) #:transparent)
 (struct window-size-msg msg (width height) #:transparent)
 (struct tick-msg msg (time) #:transparent)
@@ -84,7 +91,7 @@
 (struct mouse-release-event mouse-button-event () #:transparent)
 (struct mouse-drag-event mouse-button-event () #:transparent)
 (struct mouse-move-event mouse-event () #:transparent)
-(struct mouse-scroll-event mouse-event (direction [count #:mutable]) #:transparent)
+(struct mouse-scroll-event mouse-event (direction count) #:transparent)
 
 ;; Legacy mouse message
 (struct mouse-msg msg (x y button shift alt ctrl action)
@@ -118,3 +125,8 @@
       [(char? key) (string key)]
       [(symbol? key) (symbol->string key)]
       [else (format "~a" key)])))
+
+;;; Component composition helper
+(define (delegate parent getter setter msg)
+  (define-values (new-child child-cmd) (update (getter parent) msg))
+  (values (setter parent new-child) child-cmd))
