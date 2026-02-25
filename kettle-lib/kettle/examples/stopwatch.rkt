@@ -46,6 +46,11 @@
       (values self (quit-cmd))]
 
      [else (values self #f)]))
+ #:subscriptions
+ (lambda (self)
+   (if (stopwatch-running? self)
+       (list (every 0.1 tick-msg))
+       '()))
  #:view (lambda (self)
           (define secs (stopwatch-elapsed self))
           (define mins (exact-floor (/ secs 60)))

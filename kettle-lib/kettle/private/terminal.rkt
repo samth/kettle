@@ -46,16 +46,11 @@
   "Open /dev/tty for direct terminal I/O."
   (or (tty-port)
       (let ()
-        (define-values (in out) (values (open-input-file "/dev/tty")
-                                        (open-output-file "/dev/tty" #:exists 'append)))
-        (define combined (make-input-port
-                          "tty-in"
-                          (lambda (buf start end)
-                            (let ([b (read-bytes-avail! buf in start end)])
-                              (if (eof-object? b) 0 b)))
-                          #f
-                          (lambda () (close-input-port in))))
-        (tty-port (list combined out in))
+        (define in (open-input-file "/dev/tty"))
+        (define out (open-output-file "/dev/tty" #:exists 'append))
+        ;; Disable buffering so byte-ready? reflects actual OS state
+        (file-stream-buffer-mode in 'none)
+        (tty-port (list in out))
         (tty-port))))
 
 (define (tty-input)
@@ -69,7 +64,7 @@
 (define (close-tty)
   (define p (tty-port))
   (when p
-    (close-input-port (third p))
+    (close-input-port (first p))
     (close-output-port (second p))
     (tty-port #f)))
 
@@ -109,7 +104,10 @@
     (define saved (original-stty-settings))
     (when saved
       (parameterize ([current-input-port (open-input-file "/dev/tty")])
-        (system* "/bin/stty" saved))
+        ;; Try restoring saved settings; fall back to 'sane' if that fails
+        ;; (e.g. uutils stty doesn't accept its own -g output)
+        (unless (system* "/bin/stty" saved)
+          (system* "/bin/stty" "sane")))
       (original-stty-settings #f))))
 
 (define (get-terminal-size)

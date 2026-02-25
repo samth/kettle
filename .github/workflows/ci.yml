@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Racket
+        uses: Bogdanp/setup-racket@v1.12
+        with:
+          architecture: x64
+          distribution: full
+          version: stable
+
+      - name: Install tmux
+        run: sudo apt-get install -y tmux
+
+      - name: Install packages
+        run: raco pkg install --auto --no-docs ./kettle-lib ./kettle-doc ./kettle-test ./kettle
+
+      - name: Run tests
+        run: raco test -y kettle-test/kettle/tests/

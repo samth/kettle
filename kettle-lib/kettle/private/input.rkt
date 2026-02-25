@@ -23,7 +23,9 @@
 
 (define (read-char-no-hang [port (current-input-stream)])
   "Read a character if available, otherwise return #f."
-  (if (char-ready? port)
+  ;; Use byte-ready? instead of char-ready? because char-ready? can
+  ;; return #f on raw /dev/tty file ports even when data is available.
+  (if (byte-ready? port)
       (let ([c (read-char port)])
         (if (eof-object? c) #f c))
       #f))
@@ -48,32 +50,32 @@
    Returns #f if no input is available."
   (define port (current-input-stream))
   (define ch (read-char-no-hang port))
-  (when ch
-    (define code (char->integer ch))
-    (cond
-      ;; Escape sequences
-      [(char=? ch #\u001B)
-       (parse-escape-start port)]
-      ;; ASCII DEL (127) is commonly sent for backspace
-      [(= code 127)
-       (key-msg 'backspace #f #f)]
-      ;; Control characters
-      [(< code 32)
-       (key-msg (ctrl-char-to-key ch) #f #t)]
-      ;; Regular characters
-      [else
-       (key-msg ch #f #f)])))
+  (and ch
+       (let ([code (char->integer ch)])
+         (cond
+           ;; Escape sequences
+           [(char=? ch #\u001B)
+            (parse-escape-start port)]
+           ;; ASCII DEL (127) is commonly sent for backspace
+           [(= code 127)
+            (key-msg 'backspace #f #f)]
+           ;; Control characters
+           [(< code 32)
+            (key-msg (ctrl-char-to-key ch) #f #t)]
+           ;; Regular characters
+           [else
+            (key-msg ch #f #f)]))))
 
 (define (parse-escape-start port)
   "Parse an escape sequence after reading ESC."
   ;; Wait briefly for next character
   (define tries 0)
   (let loop ()
-    (when (and (not (char-ready? port)) (< tries 8))
+    (when (and (not (byte-ready? port)) (< tries 8))
       (sleep 0.005)
       (set! tries (+ tries 1))
       (loop)))
-  (if (char-ready? port)
+  (if (byte-ready? port)
       (let ([next (read-char port)])
         (if (eof-object? next)
             (key-msg 'escape #f #f)
@@ -133,7 +135,7 @@
     [else
      ;; Consume remaining chars
      (let loop ()
-       (when (char-ready? port)
+       (when (byte-ready? port)
          (read-char-no-hang port)
          (loop)))
      (key-msg 'unknown #f #f)]))

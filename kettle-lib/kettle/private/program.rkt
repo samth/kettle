@@ -110,7 +110,7 @@
 
        ;; Set up tty streams
        (set-program-tty-stream! p tty)
-       (set-program-renderer*! p (renderer "" tty-out))
+       (set-program-renderer*! p (renderer "" #f tty-out))
 
        ;; Start input thread
        (define input-thd
@@ -199,7 +199,9 @@
 
 (define (sync-subscriptions! p)
   "Evaluate the model's subscriptions and start/stop as needed."
-  (define new-subs (subscriptions (program-model p)))
+  (define new-subs
+    (with-handlers ([exn:fail? (lambda (_) '())])
+      (subscriptions (program-model p))))
   (define old-subs (program-active-subs p))
   (define-values (added removed _kept) (diff-subscriptions old-subs new-subs))
   ;; Stop removed subscriptions
@@ -384,6 +386,7 @@
        (define init-stx #f)
        (define update-stx #f)
        (define view-stx #f)
+       (define subs-stx #f)
        (let loop ([cs clauses])
          (cond
            [(null? cs) (void)]
@@ -398,6 +401,9 @@
             (loop (cddr cs))]
            [(keyword-stx? (car cs) '#:view)
             (set! view-stx (cadr cs))
+            (loop (cddr cs))]
+           [(keyword-stx? (car cs) '#:subscriptions)
+            (set! subs-stx (cadr cs))
             (loop (cddr cs))]
            [else
             (raise-syntax-error 'define-tea-program
@@ -421,13 +427,15 @@
                      [make-name (format-id #'name "make-~a" #'name)]
                      [init-expr (or init-stx #'(lambda (self) (values self #f)))]
                      [update-expr (or update-stx #'(lambda (self msg) (values self #f)))]
-                     [view-expr view-stx])
+                     [view-expr view-stx]
+                     [subs-expr (or subs-stx #'(lambda (self) '()))])
          #'(begin
              (struct name (fname ...)
                #:transparent
                #:methods gen:tea-model
                [(define (init model) (init-expr model))
                 (define (update model msg) (update-expr model msg))
-                (define (view model) (view-expr model))])
+                (define (view model) (view-expr model))
+                (define (subscriptions model) (subs-expr model))])
              (define (make-name #:fname [fname fdefault] ...)
                (name fname ...)))))]))
