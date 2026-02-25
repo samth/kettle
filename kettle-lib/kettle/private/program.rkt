@@ -186,6 +186,9 @@
        ;; Start initial subscriptions
        (sync-subscriptions! p)
 
+       ;; Enable incremental GC to reduce pause times during rendering
+       (collect-garbage 'incremental)
+
        ;; Main event loop
        (event-loop p)
 
