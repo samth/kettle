@@ -263,6 +263,101 @@
   (check-test-program-contains tp "Score: 0"))
 
 ;;; ============================================================
+;;; Log Viewer Search
+;;; ============================================================
+
+(define search-sample-content
+  (string-join (for/list ([i (in-range 1 101)])
+                 (format "2026-02-24 ~a Line ~a of log" (if (zero? (modulo i 10)) "ERROR" "INFO") i))
+               "\n"))
+
+(test-case "log-viewer search: / enters search mode"
+  (define lv (make-log-viewer-from-string search-sample-content "test.log" #:width 80 #:height 20))
+  (define tp (make-test-program lv))
+  (test-program-press tp #\/)
+  (check-test-program-contains tp "/"))
+
+(test-case "log-viewer search: type and execute search"
+  (define lv (make-log-viewer-from-string search-sample-content "test.log" #:width 80 #:height 20))
+  (define tp (make-test-program lv))
+  (test-program-press tp #\/)
+  (test-program-type tp "ERROR")
+  (test-program-press tp 'enter)
+  ;; Should show match count in header
+  (check-test-program-contains tp "10 matches")
+  ;; Should show search info in footer
+  (check-test-program-contains tp "/ERROR"))
+
+(test-case "log-viewer search: n jumps to next match"
+  (define lv (make-log-viewer-from-string search-sample-content "test.log" #:width 80 #:height 20))
+  (define tp (make-test-program lv))
+  (test-program-press tp #\/)
+  (test-program-type tp "ERROR")
+  (test-program-press tp 'enter)
+  (check-test-program-contains tp "1/10 matches")
+  (test-program-press tp #\n)
+  (check-test-program-contains tp "2/10 matches")
+  (test-program-press tp #\n)
+  (check-test-program-contains tp "3/10 matches"))
+
+(test-case "log-viewer search: N jumps to previous match"
+  (define lv (make-log-viewer-from-string search-sample-content "test.log" #:width 80 #:height 20))
+  (define tp (make-test-program lv))
+  (test-program-press tp #\/)
+  (test-program-type tp "ERROR")
+  (test-program-press tp 'enter)
+  (test-program-press tp #\n)
+  (test-program-press tp #\n)
+  (check-test-program-contains tp "3/10 matches")
+  (test-program-press tp #\N)
+  (check-test-program-contains tp "2/10 matches"))
+
+(test-case "log-viewer search: Escape clears search"
+  (define lv (make-log-viewer-from-string search-sample-content "test.log" #:width 80 #:height 20))
+  (define tp (make-test-program lv))
+  (test-program-press tp #\/)
+  (test-program-type tp "ERROR")
+  (test-program-press tp 'enter)
+  (check-test-program-contains tp "matches")
+  (test-program-press tp 'escape)
+  ;; After clearing, "matches" should no longer appear
+  (define view-str (test-program-view-string tp))
+  (check-false (regexp-match? #rx"matches" view-str)))
+
+(test-case "log-viewer search: no matches shows [no matches]"
+  (define lv (make-log-viewer-from-string search-sample-content "test.log" #:width 80 #:height 20))
+  (define tp (make-test-program lv))
+  (test-program-press tp #\/)
+  (test-program-type tp "ZZZZNOTFOUND")
+  (test-program-press tp 'enter)
+  (check-test-program-contains tp "no matches"))
+
+(test-case "log-viewer search: n wraps around"
+  (define lv (make-log-viewer-from-string search-sample-content "test.log" #:width 80 #:height 20))
+  (define tp (make-test-program lv))
+  (test-program-press tp #\/)
+  (test-program-type tp "ERROR")
+  (test-program-press tp 'enter)
+  ;; Jump to last match
+  (for ([_ (in-range 9)])
+    (test-program-press tp #\n))
+  (check-test-program-contains tp "10/10 matches")
+  ;; Next should wrap to first
+  (test-program-press tp #\n)
+  (check-test-program-contains tp "1/10 matches"))
+
+(test-case "log-viewer search: Escape in input mode cancels"
+  (define lv (make-log-viewer-from-string search-sample-content "test.log" #:width 80 #:height 20))
+  (define tp (make-test-program lv))
+  (test-program-press tp #\/)
+  (test-program-type tp "ERR")
+  (test-program-press tp 'escape)
+  ;; Should be back to normal mode with no search info
+  (define view-str (test-program-view-string tp))
+  (check-false (regexp-match? #rx"matches" view-str))
+  (check-test-program-contains tp "/:search"))
+
+;;; ============================================================
 ;;; History tracking
 ;;; ============================================================
 
