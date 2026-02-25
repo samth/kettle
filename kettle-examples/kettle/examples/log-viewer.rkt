@@ -8,6 +8,7 @@
 
 (require racket/format
          racket/list
+         racket/match
          racket/port
          racket/string
          racket/file
@@ -30,7 +31,7 @@
          height ; terminal dimensions
          gutter-w) ; line number gutter width (digits + 1 for space)
   #:transparent
-  #:methods gen:tea-model
+  #:methods gen:kettle-model
   [(define (init lv)
      lv)
    (define (update lv msg)
@@ -82,53 +83,49 @@
 ;;; Update
 
 (define (log-viewer-update lv msg)
-  (cond
+  (match msg
     ;; Key messages
-    [(key-msg? msg)
-     (define key (key-msg-key msg))
-     (cond
+    [(key-msg key alt? ctrl?)
+     (match key
        ;; Quit
-       [(and (char? key) (char=? key #\q)) (cmd lv (quit-cmd))]
+       [#\q (cmd lv (quit-cmd))]
 
        ;; Down / j
-       [(or (eq? key 'down) (and (char? key) (char=? key #\j)))
+       [(or 'down #\j)
         (struct-copy log-viewer lv [y-offset (clamp-y lv (add1 (log-viewer-y-offset lv)))])]
 
        ;; Up / k
-       [(or (eq? key 'up) (and (char? key) (char=? key #\k)))
+       [(or 'up #\k)
         (struct-copy log-viewer lv [y-offset (clamp-y lv (sub1 (log-viewer-y-offset lv)))])]
 
        ;; Page down / space
-       [(or (and (char? key) (char=? key #\space)) (eq? key 'page-down))
+       [(or #\space 'page-down)
         (define page-h (- (log-viewer-height lv) 2))
         (struct-copy log-viewer lv [y-offset (clamp-y lv (+ (log-viewer-y-offset lv) page-h))])]
 
        ;; Page up / b
-       [(or (and (char? key) (char=? key #\b)) (eq? key 'page-up))
+       [(or #\b 'page-up)
         (define page-h (- (log-viewer-height lv) 2))
         (struct-copy log-viewer lv [y-offset (clamp-y lv (- (log-viewer-y-offset lv) page-h))])]
 
        ;; Top / g
-       [(and (char? key) (char=? key #\g)) (struct-copy log-viewer lv [y-offset 0])]
+       [#\g (struct-copy log-viewer lv [y-offset 0])]
 
        ;; Bottom / G
-       [(and (char? key) (char=? key #\G))
-        (struct-copy log-viewer lv [y-offset (max-y-offset lv)])]
+       [#\G (struct-copy log-viewer lv [y-offset (max-y-offset lv)])]
 
        ;; Left / h
-       [(or (eq? key 'left) (and (char? key) (char=? key #\h)))
+       [(or 'left #\h)
         (struct-copy log-viewer lv [x-offset (clamp-x lv (- (log-viewer-x-offset lv) 4))])]
 
        ;; Right / l
-       [(or (eq? key 'right) (and (char? key) (char=? key #\l)))
+       [(or 'right #\l)
         (struct-copy log-viewer lv [x-offset (clamp-x lv (+ (log-viewer-x-offset lv) 4))])]
 
-       [else lv])]
+       [_ lv])]
 
     ;; Window resize
-    [(window-size-msg? msg)
-     (define w (window-size-msg-width msg))
-     (define h (window-size-msg-height msg))
+    [(window-size-msg w h)
      (define new-lv (struct-copy log-viewer lv [width w] [height h]))
      ;; Re-clamp offsets for new size
      (struct-copy log-viewer
@@ -136,7 +133,7 @@
                   [y-offset (clamp-y new-lv (log-viewer-y-offset new-lv))]
                   [x-offset (clamp-x new-lv (log-viewer-x-offset new-lv))])]
 
-    [else lv]))
+    [_ lv]))
 
 ;;; View -- O(viewport-height)
 

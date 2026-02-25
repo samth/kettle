@@ -48,10 +48,10 @@
 ;;; Tick message
 (struct spinner-tick-msg msg (id) #:transparent)
 
-;;; Spinner model -- implements gen:tea-model
+;;; Spinner model -- implements gen:kettle-model
 (struct spinner (frames fps frame-index id)
   #:transparent
-  #:methods gen:tea-model
+  #:methods gen:kettle-model
   [(define (init s)
      (cmd s
           (lambda ()

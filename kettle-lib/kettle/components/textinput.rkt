@@ -41,7 +41,7 @@
                undo-stack
                redo-stack)
   #:transparent
-  #:methods gen:tea-model
+  #:methods gen:kettle-model
   [(define (init input)
      input)
    (define (update input msg)

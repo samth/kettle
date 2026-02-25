@@ -20,10 +20,10 @@
          list-view-get-selected
          list-view-set-items)
 
-;;; List model -- implements gen:tea-model
+;;; List model -- implements gen:kettle-model
 (struct list-view (items selected height offset)
   #:transparent
-  #:methods gen:tea-model
+  #:methods gen:kettle-model
   [(define (init lv)
      lv)
    (define (update lv msg)

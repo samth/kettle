@@ -50,9 +50,6 @@
          render-styled
 
          ;; Convenience
-         bold
-         italic
-         underline
          colored
 
          ;; Reflow
@@ -561,15 +558,6 @@
       (string-join (take lines max-h) "\n")))
 
 ;;; Convenience functions
-
-(define (bold text)
-  (render-styled (make-style #:bold #t) text))
-
-(define (italic text)
-  (render-styled (make-style #:italic #t) text))
-
-(define (underline text)
-  (render-styled (make-style #:underline #t) text))
 
 (define (colored text #:fg [fg #f] #:bg [bg #f])
   (render-styled (make-style #:foreground fg #:background bg) text))

@@ -1,6 +1,6 @@
 # Kettle
 
-A Racket library for building Terminal User Interfaces (TUIs) using The Elm Architecture (TEA) pattern. Ported from the Common Lisp `cl-tuition` library.
+A Racket library for building Terminal User Interfaces (TUIs). Ported from the Common Lisp `cl-tuition` library.
 
 ## Package Structure
 
@@ -11,10 +11,10 @@ Three-package layout:
 
 ## Architecture
 
-TEA pattern: model, update, view via `gen:tea-model` generic interface. See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the rendering pipeline, event loop internals, and module dependency graph.
+Kettle pattern: model, update, view via `gen:kettle-model` generic interface. See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the rendering pipeline, event loop internals, and module dependency graph.
 
 Key modules in `kettle-lib/kettle/private/`:
-- `protocol.rkt` - Core TEA generic interface, message types, commands
+- `protocol.rkt` - Core Kettle generic interface, message types, commands
 - `terminal.rkt` - Raw terminal control via `#%terminal` API (ioctl-based raw mode and size detection)
 - `input.rkt` - Keyboard/mouse input parsing (CSI, SGR mouse, bracketed paste)
 - `style.rkt` - ANSI styling, colors (16/256/truecolor), text measurement
@@ -22,8 +22,8 @@ Key modules in `kettle-lib/kettle/private/`:
 - `layout.rkt` - String-based horizontal/vertical joining and placement (legacy)
 - `borders.rkt` - Box border rendering
 - `renderer.rkt` - Cell-buffer renderer (paint image tree -> diff -> minimal ANSI output)
-- `program.rkt` - TEA event loop (`program-run`, `define-tea-program`)
-- `run.rkt` - Big-bang-style entry point (wraps plain values in `gen:tea-model`)
+- `program.rkt` - Kettle event loop (`program-run`, `define-kettle-program`)
+- `run.rkt` - Big-bang-style entry point (wraps plain values in `gen:kettle-model`)
 - `errors.rkt` - Exception types (`exn:fail:kettle`)
 - `subscriptions.rkt` - Elm-style subscriptions (timers, resize, port watchers)
 - `layout-constraints.rkt` - Constraint-based layout splitting
@@ -51,7 +51,7 @@ raco setup --pkgs kettle-doc
 
 Three tiers of tests in `kettle-lib/kettle/tests/`:
 - **Unit tests** -- test individual modules directly
-- **Integration tests** (`test-integration.rkt`) -- headless TEA loop via `kettle/test`
+- **Integration tests** (`test-integration.rkt`) -- headless Kettle loop via `kettle/test`
 - **E2E tests** (`test-e2e.rkt`) -- full programs in tmux via `kettle/test-tmux`
 
 ```bash

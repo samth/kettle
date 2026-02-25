@@ -7,8 +7,8 @@ Internal reference for the rendering pipeline, event loop, terminal control, and
 ```
 main.rkt (re-exports everything)
   |
-  +-- program.rkt (TEA event loop, program-run)
-  |     +-- protocol.rkt (gen:tea-model, messages, commands)
+  +-- program.rkt (Kettle event loop, program-run)
+  |     +-- protocol.rkt (gen:kettle-model, messages, commands)
   |     +-- terminal.rkt (raw mode, alt screen, cursor)
   |     +-- input.rkt (keyboard/mouse parsing)
   |     +-- renderer.rkt (cell buffer, paint, diff)
@@ -23,21 +23,21 @@ main.rkt (re-exports everything)
   +-- layout-constraints.rkt (split-horizontal, split-vertical)
   +-- run.rkt (big-bang-style wrapper around program-run)
 
-components/ (each implements gen:tea-model):
+components/ (each implements gen:kettle-model):
   textinput.rkt, textarea.rkt, list-view.rkt, table.rkt,
   spinner.rkt, progress.rkt, paginator.rkt, viewport.rkt
 ```
 
-## TEA Protocol (`protocol.rkt`)
+## Kettle Protocol (`protocol.rkt`)
 
 The core generic interface:
 
 ```racket
-(define-generics tea-model
-  (init tea-model)           ; -> model or (cmd model command)
-  (update tea-model msg)     ; -> new-model or (cmd new-model command)
-  (view tea-model)           ; -> image
-  (subscriptions tea-model)) ; -> list of subscription specs
+(define-generics kettle-model
+  (init kettle-model)           ; -> model or (cmd model command)
+  (update kettle-model msg)     ; -> new-model or (cmd new-model command)
+  (view kettle-model)           ; -> image
+  (subscriptions kettle-model)) ; -> list of subscription specs
 ```
 
 All four methods have defaults (identity init, no-op update, empty string view, empty subscriptions).
@@ -221,9 +221,9 @@ Colors are ANSI code strings: "31" for red, "38;2;R;G;B" for truecolor. Adaptive
 
 ## Two Entry Points
 
-1. **`define-tea-program`** (macro in `program.rkt`) -- generates a struct implementing `gen:tea-model` with `#:fields`, `#:init`, `#:update`, `#:view`, `#:subscriptions` clauses. Used by stopwatch, todo, viewer examples.
+1. **`define-kettle-program`** (macro in `program.rkt`) -- generates a struct implementing `gen:kettle-model` with `#:fields`, `#:init`, `#:update`, `#:view`, `#:subscriptions` clauses. Used by stopwatch, todo, viewer examples.
 
-2. **`run`** (in `run.rkt`) -- big-bang-style API. Takes an initial value and `#:on-key`, `#:on-msg`, `#:to-view`, `#:stop-when` handlers. Internally wraps the value in a `run-model` struct that implements `gen:tea-model`. Used by the counter example.
+2. **`run`** (in `run.rkt`) -- big-bang-style API. Takes an initial value and `#:on-key`, `#:on-msg`, `#:to-view`, `#:stop-when` handlers. Internally wraps the value in a `run-model` struct that implements `gen:kettle-model`. Used by the counter example.
 
 Both ultimately call `program-run`.
 
@@ -231,9 +231,9 @@ Both ultimately call `program-run`.
 
 Three tiers:
 - **Unit tests** (`kettle-lib/kettle/tests/`) -- test individual modules directly
-- **Integration tests** (`test-integration.rkt`) -- headless TEA loop via `kettle/test` (synchronous, no terminal)
+- **Integration tests** (`test-integration.rkt`) -- headless Kettle loop via `kettle/test` (synchronous, no terminal)
 - **E2E tests** (`test-e2e.rkt`) -- full programs in tmux sessions via `kettle/test-tmux`
 
-The headless test harness (`kettle/test`) reimplements the TEA loop synchronously: `make-test-program` constructs a test program, `test-program-send` processes messages, `test-program-view-string` renders to a string for assertions.
+The headless test harness (`kettle/test`) reimplements the Kettle loop synchronously: `make-test-program` constructs a test program, `test-program-send` processes messages, `test-program-view-string` renders to a string for assertions.
 
 The tmux harness (`kettle/test-tmux`) uses `-L kettle-test` for socket isolation to prevent interference from user tmux sessions. `tmux-start` creates a detached session, `tmux-send-keys` injects input, `tmux-capture` reads the pane, `tmux-wait-for` polls until expected output appears.

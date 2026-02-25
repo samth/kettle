@@ -10,7 +10,7 @@
 
          ;; Contracted exports from program.rkt
          (contract-out [make-program
-                        (->* (tea-model?)
+                        (->* (kettle-model?)
                              (#:alt-screen boolean?
                               #:mouse (or/c 'cell-motion 'all-motion #f)
                               #:show-fps boolean?)
@@ -25,4 +25,4 @@
          ;; Non-contracted re-exports
          (struct-out program)
          current-program
-         define-tea-program)
+         define-kettle-program)

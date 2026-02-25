@@ -8,6 +8,7 @@
 (require racket/file
          racket/port
          racket/format
+         racket/match
          kettle/program
          kettle/image
          kettle/style
@@ -19,7 +20,7 @@
 
 (struct file-viewer (viewport filename)
   #:transparent
-  #:methods gen:tea-model
+  #:methods gen:kettle-model
   [(define (init fv)
      fv)
    (define (update fv msg)
@@ -35,22 +36,21 @@
   (vp:make-viewport #:width w #:height h #:content content))
 
 (define (file-viewer-update fv msg)
-  (cond
+  (match msg
     ;; q quits
-    [(and (key-msg? msg) (char? (key-msg-key msg)) (char=? (key-msg-key msg) #\q))
-     (cmd fv (quit-cmd))]
+    [(key-msg #\q _ _) (cmd fv (quit-cmd))]
 
     ;; Window resize
-    [(window-size-msg? msg)
-     (define w (window-size-msg-width msg))
-     (define h (window-size-msg-height msg))
+    [(window-size-msg w h)
      (define content (vp:viewport-content (file-viewer-viewport fv)))
      (struct-copy file-viewer fv [viewport (make-viewport-from-content content w (- h 3))])]
 
     ;; Delegate everything else to viewport
-    [else
+    [_
      (define-values (new-vp sub-cmd) (extract-update-result (update (file-viewer-viewport fv) msg)))
-     (if sub-cmd (cmd (struct-copy file-viewer fv [viewport new-vp]) sub-cmd) (struct-copy file-viewer fv [viewport new-vp]))]))
+     (if sub-cmd
+         (cmd (struct-copy file-viewer fv [viewport new-vp]) sub-cmd)
+         (struct-copy file-viewer fv [viewport new-vp]))]))
 
 (define (truncate-to-width str w)
   (if (<= (string-length str) w)
@@ -67,9 +67,7 @@
   (define footer-style (make-style #:faint #t))
 
   (vcat 'left
-        (styled header-style (text (truncate-to-width
-                                    (format " ~a  (~a lines) " fname total)
-                                    w)))
+        (styled header-style (text (truncate-to-width (format " ~a  (~a lines) " fname total) w)))
         (view vp)
         (styled footer-style
                 (text (truncate-to-width

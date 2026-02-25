@@ -42,7 +42,7 @@
                char-limit
                max-lines)
   #:transparent
-  #:methods gen:tea-model
+  #:methods gen:kettle-model
   [(define (init ta)
      ta)
    (define (update ta msg)

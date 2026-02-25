@@ -92,7 +92,15 @@
          string->image
 
          ;; Image predicates and utilities
-         image-empty?)
+         image-empty?
+
+         ;; Auto-coercion
+         ensure-image
+
+         ;; Convenience styling
+         bold
+         italic
+         underline)
 
 ;;; ============================================================
 ;;; Core image struct hierarchy
@@ -124,6 +132,17 @@
 (struct image:flex image (sw mw sh mh inner) #:transparent)
 
 ;;; ============================================================
+;;; Auto-coercion
+;;; ============================================================
+
+;; Coerce a value to an image: images pass through, strings become text.
+(define (ensure-image x)
+  (cond
+    [(image? x) x]
+    [(string? x) (text x)]
+    [else (raise-argument-error 'ensure-image "(or/c image? string?)" x)]))
+
+;;; ============================================================
 ;;; Smart constructors
 ;;; ============================================================
 
@@ -148,7 +167,8 @@
 ;; Horizontal concatenation
 (define (hcat align . images)
   (define children
-    (filter (lambda (i) (not (and (image:blank? i) (zero? (image-w i)) (zero? (image-h i))))) images))
+    (filter (lambda (i) (not (and (image:blank? i) (zero? (image-w i)) (zero? (image-h i)))))
+            (map ensure-image images)))
   (cond
     [(null? children) (image:blank 0 0)]
     [(null? (cdr children)) (car children)]
@@ -161,7 +181,8 @@
 ;; Vertical concatenation
 (define (vcat align . images)
   (define children
-    (filter (lambda (i) (not (and (image:blank? i) (zero? (image-w i)) (zero? (image-h i))))) images))
+    (filter (lambda (i) (not (and (image:blank? i) (zero? (image-w i)) (zero? (image-h i)))))
+            (map ensure-image images)))
   (cond
     [(null? children) (image:blank 0 0)]
     [(null? (cdr children)) (car children)]
@@ -174,7 +195,8 @@
 ;; Overlay (front-to-back z-ordering)
 (define (zcat . images)
   (define children
-    (filter (lambda (i) (not (and (image:blank? i) (zero? (image-w i)) (zero? (image-h i))))) images))
+    (filter (lambda (i) (not (and (image:blank? i) (zero? (image-w i)) (zero? (image-h i)))))
+            (map ensure-image images)))
   (cond
     [(null? children) (image:blank 0 0)]
     [(null? (cdr children)) (car children)]
@@ -189,15 +211,17 @@
 
 ;; Pad: add space around an image
 (define (pad inner #:left [l 0] #:right [r 0] #:top [t 0] #:bottom [b 0])
+  (define img (ensure-image inner))
   (if (and (zero? l) (zero? r) (zero? t) (zero? b))
-      inner
-      (image:pad (+ l r (image-w inner)) (+ t b (image-h inner)) l r t b inner)))
+      img
+      (image:pad (+ l r (image-w img)) (+ t b (image-h img)) l r t b img)))
 
 ;; Styled: apply a style to an image subtree
 (define (styled sty inner)
+  (define img (ensure-image inner))
   (if sty
-      (image:styled (image-w inner) (image-h inner) sty inner)
-      inner))
+      (image:styled (image-w img) (image-h img) sty img)
+      img))
 
 ;; Flex: mark an image as stretchable in layout
 ;; sw/sh = stretch priority (0 = don't stretch), mw/mh = max size (#f = unbounded)
@@ -236,3 +260,16 @@
 ;; Check if an image has zero dimensions
 (define (image-empty? img)
   (and (zero? (image-w img)) (zero? (image-h img))))
+
+;;; ============================================================
+;;; Convenience styling (image-level)
+;;; ============================================================
+
+(define (bold inner)
+  (styled (make-style #:bold #t) (ensure-image inner)))
+
+(define (italic inner)
+  (styled (make-style #:italic #t) (ensure-image inner)))
+
+(define (underline inner)
+  (styled (make-style #:underline #t) (ensure-image inner)))

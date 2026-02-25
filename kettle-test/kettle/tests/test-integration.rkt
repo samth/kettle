@@ -50,7 +50,7 @@
   (check-test-program-contains tp "quit"))
 
 ;;; ============================================================
-;;; Stopwatch (define-tea-program)
+;;; Stopwatch (define-kettle-program)
 ;;; ============================================================
 
 (test-case "stopwatch: initial state"
@@ -252,7 +252,7 @@
 ;; This caused read-all-available-events to loop infinitely.
 ;; The fix: changed `when` to `and` in read-key.
 (test-case "regression: model without subscriptions does not crash"
-  ;; Models that implement gen:tea-model via #:methods but omit subscriptions
+  ;; Models that implement gen:kettle-model via #:methods but omit subscriptions
   ;; should not crash sync-subscriptions! or the test harness.
   (define tp (make-test-program/run 0 #:on-key counter-on-key #:to-view counter-view))
   (check-equal? (test-program-subscriptions tp) '())

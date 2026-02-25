@@ -33,9 +33,9 @@
          current-error-handler
          handle-kettle-error
 
-         ;; === Core TEA Protocol ===
-         gen:tea-model
-         tea-model?
+         ;; === Core Kettle Protocol ===
+         gen:kettle-model
+         kettle-model?
          init
          update
          view
@@ -123,6 +123,10 @@
          empty-image
          string->image
          image-empty?
+         ensure-image
+         bold
+         italic
+         underline
          image->string
 
          ;; Image struct types (for pattern matching)
@@ -215,9 +219,6 @@
          (struct-out style)
          make-style
          render-styled
-         bold
-         italic
-         underline
          colored
 
          ;; Reflow
@@ -311,7 +312,7 @@
          program-run
          program-show-fps!
          current-program
-         define-tea-program
+         define-kettle-program
 
          ;; === Renderer (for testing / advanced use) ===
          cell-buffer->string)

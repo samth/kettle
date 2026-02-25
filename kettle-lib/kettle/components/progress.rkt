@@ -18,10 +18,10 @@
          progress-set-percent
          progress-increment)
 
-;;; Progress bar model -- implements gen:tea-model
+;;; Progress bar model -- implements gen:kettle-model
 (struct progress (percent width show-percentage? full-char empty-char)
   #:transparent
-  #:methods gen:tea-model
+  #:methods gen:kettle-model
   [(define (init pb)
      pb)
    (define (update pb msg)

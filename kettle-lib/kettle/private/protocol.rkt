@@ -7,13 +7,13 @@
 ;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
 ;; Racket port
 ;;
-;; Core protocol for the Elm Architecture pattern
+;; Core protocol for the Kettle architecture pattern
 
 (require racket/generic
          racket/match)
 
-(provide gen:tea-model
-         tea-model?
+(provide gen:kettle-model
+         kettle-model?
          init
          update
          view
@@ -71,16 +71,16 @@
       (values (cmd-model v) (cmd-value v))
       (values v #f)))
 
-;;; TEA Model generic interface
-(define-generics tea-model
+;;; Kettle Model generic interface
+(define-generics kettle-model
   ;; Initialize the model. Returns model or (cmd model command).
-  (init tea-model)
+  (init kettle-model)
   ;; Handle a message. Returns new-model or (cmd new-model command).
-  (update tea-model msg)
+  (update kettle-model msg)
   ;; Render the model to an image (or string for legacy).
-  (view tea-model)
+  (view kettle-model)
   ;; Return a list of subscription specs. Evaluated after each update.
-  (subscriptions tea-model)
+  (subscriptions kettle-model)
   #:defaults
   ([init (lambda (m) m)]
    [update (lambda (m msg) m)]

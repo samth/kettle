@@ -249,7 +249,7 @@ as @racket[big-bang]:
 @racket[big-bang] has a simple @racket[[on-tick handler]] or
 @racket[[on-tick handler rate]] clause. Kettle's @racket[run] form
 doesn't have a tick handler. For time-based programs, you need
-@racket[define-tea-program] with subscriptions, which is more powerful
+@racket[define-kettle-program] with subscriptions, which is more powerful
 but more involved.
 
 Here's a side-by-side of a counting timer.
@@ -268,7 +268,7 @@ Kettle version:
 @racketblock[
 (require kettle)
 
-(define-tea-program
+(define-kettle-program
   ticker
   #:fields ([count 0])
   #:update
@@ -287,20 +287,20 @@ Kettle version:
 ]
 
 This uses @racket[tick-msg] messages that arrive from the program
-runner's subscription system. The @racket[define-tea-program] macro
+runner's subscription system. The @racket[define-kettle-program] macro
 creates a struct (@racket[ticker]) with field accessors
 (@racket[ticker-count]) and a constructor (@racket[make-ticker]).
 
-@section{Scaling up: define-tea-program}
+@section{Scaling up: @racket[define-kettle-program]}
 
 @racket[run] is fine for simple programs, just as @racket[big-bang] is
 fine for simple programs. When your state gets complex, @racket[big-bang]
 users typically define a struct. Kettle provides
-@racket[define-tea-program] which does this for you and wires up the TEA
+@racket[define-kettle-program] which does this for you and wires up the TEA
 protocol:
 
 @racketblock[
-(define-tea-program
+(define-kettle-program
   my-app
   #:fields ([name "World"]
             [count 0])
@@ -321,7 +321,7 @@ This generates:
   @item{A constructor @racket[(make-my-app)] with keyword arguments
         @racket[#:name], @racket[#:count]}
   @item{Accessors @racket[my-app-name], @racket[my-app-count]}
-  @item{The struct implements @racket[gen:tea-model], so you can pass it
+  @item{The struct implements @racket[gen:kettle-model], so you can pass it
         to @racket[make-program]}
 ]
 
@@ -332,16 +332,16 @@ To run it:
 (program-run p)
 ]
 
-@section{Scaling further: gen:tea-model}
+@section{Scaling further: @racket[gen:kettle-model]}
 
-For maximum control, implement the @racket[gen:tea-model] generic
+For maximum control, implement the @racket[gen:kettle-model] generic
 interface directly on a struct. This is useful when you want to compose
 components:
 
 @racketblock[
 (struct my-app (child-component some-data)
   #:transparent
-  #:methods gen:tea-model
+  #:methods gen:kettle-model
   [(define (init self) self)
    (define (update self msg) (my-update self msg))
    (define (view self) (my-view self))])

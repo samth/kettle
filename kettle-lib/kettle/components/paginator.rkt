@@ -34,10 +34,10 @@
 (define paginator-arabic 'arabic)
 (define paginator-dots 'dots)
 
-;;; Paginator model -- implements gen:tea-model
+;;; Paginator model -- implements gen:kettle-model
 (struct paginator (type page per-page total-pages active-dot inactive-dot arabic-format)
   #:transparent
-  #:methods gen:tea-model
+  #:methods gen:kettle-model
   [(define (init pg)
      pg)
    (define (update pg msg)

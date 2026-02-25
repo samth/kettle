@@ -4,10 +4,10 @@
 
 @title{Program}
 
-The main application loop that ties together the TEA model, terminal,
+The main application loop that ties together the Kettle model, terminal,
 input, and rendering.
 
-@defstruct[program ([model tea-model?]
+@defstruct[program ([model kettle-model?]
                     [renderer* renderer?]
                     [msg-channel any/c]
                     [running? boolean?]
@@ -17,7 +17,7 @@ input, and rendering.
                     [input-thread (or/c thread? #f)]) #:transparent]{
   A running TUI program.}
 
-@defproc[(make-program [model tea-model?]
+@defproc[(make-program [model kettle-model?]
                        [#:alt-screen alt-screen boolean? #f]
                        [#:mouse mouse (or/c 'cell-motion 'all-motion #f) #f]) program?]{
   Create a new program with the given initial model.
@@ -51,8 +51,8 @@ input, and rendering.
            #:init init-body
            #:update update-body
            #:view view-body)]{
-  Convenience macro for defining a TEA model struct with
-  @racket[gen:tea-model] methods.
+  Convenience macro for defining a Kettle model struct with
+  @racket[gen:kettle-model] methods.
 
   @racketblock[
     (defprogram counter

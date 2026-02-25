@@ -1,9 +1,10 @@
 #lang racket/base
 
 ;; todo.rkt -- Todo list with component composition.
-;; Demonstrates gen:tea-model, delegate, textinput + list-view, struct-copy.
+;; Demonstrates gen:kettle-model, delegate, textinput + list-view, struct-copy.
 
 (require racket/list
+         racket/match
          kettle/program
          kettle/image
          kettle/style
@@ -17,7 +18,7 @@
 (struct todo (input list-view items mode)
   ;; mode is 'insert (typing into textinput) or 'navigate (browsing the list)
   #:transparent
-  #:methods gen:tea-model
+  #:methods gen:kettle-model
   [(define (init t)
      t)
    (define (update t msg)
@@ -32,13 +33,12 @@
         'insert))
 
 (define (todo-update t msg)
-  (cond
+  (match msg
     ;; C-q quits from any mode
-    [(and (key-msg? msg) (char? (key-msg-key msg)) (char=? (key-msg-key msg) #\q) (key-msg-ctrl msg))
-     (cmd t (quit-cmd))]
+    [(key-msg #\q _ #t) (cmd t (quit-cmd))]
 
     ;; Tab switches mode
-    [(and (key-msg? msg) (eq? (key-msg-key msg) 'tab))
+    [(key-msg 'tab _ _)
      (define new-mode (if (eq? (todo-mode t) 'insert) 'navigate 'insert))
      (define new-input
        (if (eq? new-mode 'insert)
@@ -47,7 +47,8 @@
      (struct-copy todo t [mode new-mode] [input new-input])]
 
     ;; In insert mode: Enter adds the item
-    [(and (eq? (todo-mode t) 'insert) (key-msg? msg) (eq? (key-msg-key msg) 'enter))
+    [(key-msg 'enter _ _)
+     #:when (eq? (todo-mode t) 'insert)
      (define val (ti:textinput-value (todo-input t)))
      (if (string=? val "")
          t
@@ -57,15 +58,16 @@
            (struct-copy todo t [input new-input] [list-view new-lv] [items new-items])))]
 
     ;; In insert mode: delegate to textinput
-    [(eq? (todo-mode t) 'insert)
+    [_
+     #:when (eq? (todo-mode t) 'insert)
      (define-values (new-input sub-cmd) (extract-update-result (update (todo-input t) msg)))
-     (if sub-cmd (cmd (struct-copy todo t [input new-input]) sub-cmd) (struct-copy todo t [input new-input]))]
+     (if sub-cmd
+         (cmd (struct-copy todo t [input new-input]) sub-cmd)
+         (struct-copy todo t [input new-input]))]
 
     ;; In navigate mode: d deletes selected item
-    [(and (eq? (todo-mode t) 'navigate)
-          (key-msg? msg)
-          (char? (key-msg-key msg))
-          (char=? (key-msg-key msg) #\d))
+    [(key-msg #\d _ _)
+     #:when (eq? (todo-mode t) 'navigate)
      (define sel (lv:list-view-selected (todo-list-view t)))
      (define items (todo-items t))
      (if (and (>= sel 0) (< sel (length items)))
@@ -75,29 +77,31 @@
          t)]
 
     ;; In navigate mode: delegate to list-view (up/down)
-    [(eq? (todo-mode t) 'navigate)
+    [_
+     #:when (eq? (todo-mode t) 'navigate)
      (define-values (new-lv sub-cmd) (extract-update-result (update (todo-list-view t) msg)))
-     (if sub-cmd (cmd (struct-copy todo t [list-view new-lv]) sub-cmd) (struct-copy todo t [list-view new-lv]))]
+     (if sub-cmd
+         (cmd (struct-copy todo t [list-view new-lv]) sub-cmd)
+         (struct-copy todo t [list-view new-lv]))]
 
-    [else t]))
+    [_ t]))
 
 (define (todo-view t)
   (define mode-label (if (eq? (todo-mode t) 'insert) "[INSERT]" "[NAVIGATE]"))
-  (define header-style (make-style #:bold #t))
 
   (vcat 'left
-        (styled header-style (text "Todo List"))
-        (text "")
+        (bold "Todo List")
+        ""
         (view (todo-input t))
-        (text "")
-        (text (format "~a items  ~a" (length (todo-items t)) mode-label))
+        ""
+        (format "~a items  ~a" (length (todo-items t)) mode-label)
         (text (make-string 40 #\-))
         (view (todo-list-view t))
-        (text "")
-        (text "  tab    switch mode")
-        (text "  enter  add item (insert mode)")
-        (text "  d      delete item (navigate mode)")
-        (text "  C-q    quit")))
+        ""
+        "  tab    switch mode"
+        "  enter  add item (insert mode)"
+        "  d      delete item (navigate mode)"
+        "  C-q    quit"))
 
 (module+ main
   (define p (make-program (make-todo) #:alt-screen #t))

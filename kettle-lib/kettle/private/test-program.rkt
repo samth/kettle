@@ -4,8 +4,8 @@
 ;;
 ;; SPDX-License-Identifier: MIT
 ;;
-;; Headless, synchronous TEA test harness.
-;; Reimplements the TEA loop without threading or terminal dependencies.
+;; Headless, synchronous Kettle test harness.
+;; Reimplements the Kettle loop without threading or terminal dependencies.
 ;; Useful for deterministic integration testing of Kettle programs.
 
 (require racket/match
@@ -43,7 +43,7 @@
 ;;; ============================================================
 
 (struct test-program
-        ([model #:mutable] ; current tea-model
+        ([model #:mutable] ; current kettle-model
          width
          height ; simulated terminal size
          [done? #:mutable] ; #t after quit-msg
@@ -56,7 +56,7 @@
 ;;; ============================================================
 
 ;; Safely get subscriptions, returning '() if not implemented.
-;; Many tea-model structs don't define subscriptions; the #:defaults
+;; Many kettle-model structs don't define subscriptions; the #:defaults
 ;; mechanism in define-generics doesn't always fire.
 (define (safe-subscriptions m)
   (with-handlers ([exn:fail? (lambda (_) '())])
@@ -139,7 +139,7 @@
 ;;; Construction
 ;;; ============================================================
 
-;; Create a test-program from a tea-model value.
+;; Create a test-program from a kettle-model value.
 (define (make-test-program model #:width [width 80] #:height [height 24])
   (define tp (test-program model width height #f '() '()))
   ;; Run init
@@ -165,9 +165,9 @@
 ;;; run-style adapter
 ;;; ============================================================
 
-;; Internal tea-model wrapper for run-style programs (mirrors run-model from run.rkt)
+;; Internal kettle-model wrapper for run-style programs (mirrors run-model from run.rkt)
 (struct test-run-model (value on-key-fn on-msg-fn view-fn stop-fn)
-  #:methods gen:tea-model
+  #:methods gen:kettle-model
   [(define (init m) m)
    (define (update m msg)
      (cond

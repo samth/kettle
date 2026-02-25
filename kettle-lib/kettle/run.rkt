@@ -5,7 +5,7 @@
 ;; SPDX-License-Identifier: MIT
 ;;
 ;; Simple big-bang-style entry point for Kettle TUI programs.
-;; The model can be any value -- no need for gen:tea-model.
+;; The model can be any value -- no need for gen:kettle-model.
 
 (require racket/contract
          racket/match
@@ -45,9 +45,9 @@
   (syntax-rules ()
     [(_ pred) pred]))
 
-;; Internal wrapper implementing gen:tea-model around a plain value.
+;; Internal wrapper implementing gen:kettle-model around a plain value.
 (struct run-model (value on-key-fn on-msg-fn view-fn stop-fn)
-  #:methods gen:tea-model
+  #:methods gen:kettle-model
   [(define (init m) m)
    (define (update m msg)
      (cond

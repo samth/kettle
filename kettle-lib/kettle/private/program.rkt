@@ -34,7 +34,7 @@
          program-run
          program-show-fps!
          current-program
-         define-tea-program)
+         define-kettle-program)
 
 (define current-program (make-parameter #f))
 
@@ -422,7 +422,7 @@
 ;;; Convenience macro -- generates immutable structs with optional clauses.
 ;;
 ;; Usage:
-;;   (define-tea-program counter
+;;   (define-kettle-program counter
 ;;     #:fields ([count 0])
 ;;     #:view
 ;;     (lambda (self) (text (format "Count: ~a" (counter-count self)))))
@@ -430,7 +430,7 @@
 ;; Only #:view is required. Defaults:
 ;;   #:init     -> (lambda (self) (values self #f))
 ;;   #:update   -> (lambda (self msg) (values self #f))
-(define-syntax (define-tea-program stx)
+(define-syntax (define-kettle-program stx)
   (define (keyword-stx? s kw)
     (and (keyword? (syntax-e s)) (equal? (syntax-e s) kw)))
   (syntax-case stx ()
@@ -462,11 +462,11 @@
             (set! subs-stx (cadr cs))
             (loop (cddr cs))]
            [else
-            (raise-syntax-error 'define-tea-program
+            (raise-syntax-error 'define-kettle-program
                                 "unknown clause"
                                 (car cs))]))
        (unless view-stx
-         (raise-syntax-error 'define-tea-program
+         (raise-syntax-error 'define-kettle-program
                              "missing required #:view clause" stx))
        ;; Parse field specs
        (define field-pairs
@@ -488,7 +488,7 @@
          #'(begin
              (struct name (fname ...)
                #:transparent
-               #:methods gen:tea-model
+               #:methods gen:kettle-model
                [(define (init model) (init-expr model))
                 (define (update model msg) (update-expr model msg))
                 (define (view model) (view-expr model))

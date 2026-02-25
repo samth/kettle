@@ -3,30 +3,30 @@
                      racket/generic
                      kettle))
 
-@title{Core TEA Protocol}
+@title{Core Kettle Protocol}
 
-Kettle uses the TEA (The Elm Architecture) pattern. Every application
-defines a model that implements the @racket[gen:tea-model] generic
+Kettle uses the Kettle architecture pattern. Every application
+defines a model that implements the @racket[gen:kettle-model] generic
 interface.
 
 @section{Generic Interface}
 
-@defthing[gen:tea-model any/c]{
-  A generic interface for TEA models. Implementations should define
+@defthing[gen:kettle-model any/c]{
+  A generic interface for Kettle models. Implementations should define
   @racket[init], @racket[update], and @racket[view].}
 
-@defproc[(tea-model? [v any/c]) boolean?]{
-  Returns @racket[#t] if @racket[v] implements @racket[gen:tea-model].}
+@defproc[(kettle-model? [v any/c]) boolean?]{
+  Returns @racket[#t] if @racket[v] implements @racket[gen:kettle-model].}
 
-@defproc[(init [model tea-model?]) (or/c tea-model? cmd?)]{
+@defproc[(init [model kettle-model?]) (or/c kettle-model? cmd?)]{
   Initialize the model. Returns either a bare model (no command) or
   @racket[(cmd model command)] when an initial command is needed.}
 
-@defproc[(update [model tea-model?] [message msg?]) (or/c tea-model? cmd?)]{
+@defproc[(update [model kettle-model?] [message msg?]) (or/c kettle-model? cmd?)]{
   Handle a message. Returns either a bare model (no command) or
   @racket[(cmd model command)] when a command should be executed.}
 
-@defproc[(view [model tea-model?]) string?]{
+@defproc[(view [model kettle-model?]) string?]{
   Render the model to a string for terminal display.}
 
 @section{Messages}
@@ -107,12 +107,12 @@ interface.
 
 @section{Update Results}
 
-@defstruct[cmd ([model tea-model?] [value any/c]) #:transparent]{
+@defstruct[cmd ([model kettle-model?] [value any/c]) #:transparent]{
   Wraps a model together with a command. Returned from @racket[update]
   or @racket[init] when a command should be executed. When no command
   is needed, return the model directly without wrapping.}
 
-@defproc[(extract-update-result [v (or/c tea-model? cmd?)]) (values tea-model? (or/c procedure? #f))]{
+@defproc[(extract-update-result [v (or/c kettle-model? cmd?)]) (values kettle-model? (or/c procedure? #f))]{
   Destructures an update or init return value into two values: the model
   and the command. If @racket[v] is a @racket[cmd] struct, returns
   @racket[(values (cmd-model v) (cmd-value v))]. Otherwise returns

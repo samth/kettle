@@ -39,7 +39,7 @@
 (struct viewport
         (width height y-offset x-offset lines mouse-wheel-enabled? mouse-wheel-delta horizontal-step)
   #:transparent
-  #:methods gen:tea-model
+  #:methods gen:kettle-model
   [(define (init vp)
      vp)
    (define (update vp msg)
