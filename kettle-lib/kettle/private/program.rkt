@@ -47,10 +47,10 @@
    [sub-stoppers #:mutable])    ;; hash: subscription-key -> stopper thunk
   #:transparent)
 
+;; Create a new program with the given initial model.
 (define (make-program model
                       #:alt-screen [alt-screen #f]
                       #:mouse [mouse #f])
-  "Create a new program with the given initial model."
   (when (and mouse (not (memq mouse '(cell-motion all-motion))))
     (error 'make-program "Invalid :mouse option ~s; expected 'cell-motion, 'all-motion, or #f" mouse))
   (define opts (list 'alt-screen (and alt-screen #t)
@@ -67,21 +67,21 @@
            (make-hash) ; sub-stoppers
            ))
 
+;; Send a message to the program's update loop.
 (define (program-send p m)
-  "Send a message to the program's update loop."
   (when (program-running? p)
     (async-channel-put (program-msg-channel p) m)))
 
+;; Quit the program gracefully.
 (define (program-quit p)
-  "Quit the program gracefully."
   (program-send p (quit-msg)))
 
+;; Kill the program immediately.
 (define (program-kill p)
-  "Kill the program immediately."
   (set-program-running?! p #f))
 
+;; Request the program to stop.
 (define (program-stop p)
-  "Request the program to stop."
   (set-program-running?! p #f))
 
 (define (opts-ref opts key [default #f])
@@ -92,8 +92,8 @@
       [(eq? (car l) key) (cadr l)]
       [else (loop (cddr l))])))
 
+;; Run the program's main loop. Blocks until the program exits.
 (define (program-run p)
-  "Run the program's main loop. Blocks until the program exits."
   (define opts (program-options p))
   (define alt (opts-ref opts 'alt-screen))
   (define mouse (opts-ref opts 'mouse))
@@ -146,8 +146,8 @@
      #:alt-screen alt
      #:mouse mouse)))
 
+;; Main event processing loop with batched message processing.
 (define (event-loop p)
-  "Main event processing loop with batched message processing."
   (let loop ()
     (when (program-running? p)
       (with-handlers ([exn:fail?
@@ -168,8 +168,8 @@
           (handle-messages-batch p messages)))
       (loop))))
 
+;; Combine consecutive scroll events in the same direction.
 (define (coalesce-scroll-events messages)
-  "Combine consecutive scroll events in the same direction."
   (if (null? messages)
       '()
       (let loop ([msgs messages] [result '()] [prev-scroll #f])
@@ -197,8 +197,8 @@
              [else
               (loop rest-msgs (cons m result) #f)])]))))
 
+;; Evaluate the model's subscriptions and start/stop as needed.
 (define (sync-subscriptions! p)
-  "Evaluate the model's subscriptions and start/stop as needed."
   (define new-subs
     (with-handlers ([exn:fail? (lambda (_) '())])
       (subscriptions (program-model p))))
@@ -218,15 +218,15 @@
       (hash-set! (program-sub-stoppers p) key stopper)))
   (set-program-active-subs! p new-subs))
 
+;; Stop all active subscriptions.
 (define (stop-all-subscriptions! p)
-  "Stop all active subscriptions."
   (for ([(key stopper) (in-hash (program-sub-stoppers p))])
     (stop-subscription stopper))
   (hash-clear! (program-sub-stoppers p))
   (set-program-active-subs! p '()))
 
+;; Process multiple messages, rendering only once at the end.
 (define (handle-messages-batch p messages)
-  "Process multiple messages, rendering only once at the end."
   (define coalesced (coalesce-scroll-events messages))
   (define should-render #f)
   (define pending-cmds '())
@@ -257,8 +257,8 @@
     ;; Re-evaluate subscriptions after model changes
     (sync-subscriptions! p)))
 
+;; Execute a command.
 (define (run-command p cmd)
-  "Execute a command."
   (cond
     ;; Nil command
     [(not cmd) (void)]
@@ -286,8 +286,8 @@
 
     [else (void)]))
 
+;; Run an external program with full TUI suspension.
 (define (run-exec-command p cmd)
-  "Run an external program with full TUI suspension."
   (define opts (program-options p))
   (define alt (opts-ref opts 'alt-screen))
   (define mouse (opts-ref opts 'mouse))
@@ -327,14 +327,14 @@
         (when m
           (program-send p m))))))
 
+;; Run multiple commands concurrently.
 (define (run-batch p cmds)
-  "Run multiple commands concurrently."
   (for ([cmd (in-list cmds)])
     (when cmd
       (run-command p cmd))))
 
+;; Run multiple commands in sequence.
 (define (run-sequence p cmds)
-  "Run multiple commands in sequence."
   (thread
    (lambda ()
      (for ([cmd (in-list cmds)])
@@ -343,8 +343,8 @@
          (when m
            (program-send p m)))))))
 
+;; Read input and send messages to the program.
 (define (input-loop p tty-in)
-  "Read input and send messages to the program."
   (parameterize ([current-input-stream tty-in])
     (with-handlers ([exn:fail?
                      (lambda (e)

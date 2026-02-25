@@ -7,12 +7,12 @@
 ;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
 ;; Racket port
 ;;
-;; Terminal control and raw mode handling
+;; Terminal control and raw mode handling.
+;; Uses the built-in #%terminal API (ioctl-based) for raw mode and
+;; terminal size, with escape sequences for TUI features.
 
-(require racket/system
-         racket/port
-         racket/list
-         racket/string
+(require racket/list
+         (only-in '#%terminal terminal-init terminal-get-screen-size terminal-raw-mode)
          "errors.rkt")
 
 (provide enter-raw-mode
@@ -38,12 +38,10 @@
 
 (define ESC "\e")
 
-;; Store original stty settings for restoration
-(define original-stty-settings (make-parameter #f))
 (define tty-port (make-parameter #f))
+(define terminal-initialized? (make-parameter #f))
 
 (define (open-tty)
-  "Open /dev/tty for direct terminal I/O."
   (or (tty-port)
       (let ()
         (define in (open-input-file "/dev/tty"))
@@ -55,11 +53,15 @@
 
 (define (tty-input)
   (define p (tty-port))
-  (if p (first p) (current-input-port)))
+  (if p
+      (first p)
+      (current-input-port)))
 
 (define (tty-output)
   (define p (tty-port))
-  (if p (second p) (current-output-port)))
+  (if p
+      (second p)
+      (current-output-port)))
 
 (define (close-tty)
   (define p (tty-port))
@@ -68,70 +70,44 @@
     (close-output-port (second p))
     (tty-port #f)))
 
+;; Initialize the #%terminal subsystem if not already done.
+;; Uses fd -1 to indicate "use inherited stdin/stdout".
+(define (ensure-terminal-init!)
+  (unless (terminal-initialized?)
+    (when (terminal-init -1 -1)
+      (terminal-initialized? #t))))
+
 (define (enter-raw-mode)
-  "Put the terminal in raw mode for TUI applications."
-  (with-handlers ([exn:fail?
-                   (lambda (e)
-                     (raise (exn:fail:kettle:terminal:operation
-                             (format "enter-raw-mode failed: ~a" (exn-message e))
-                             (current-continuation-marks)
-                             e
-                             'enter-raw-mode)))])
-    ;; Save original settings
-    (unless (original-stty-settings)
-      (define saved
-        (string-trim
-         (with-output-to-string
-           (lambda ()
-             (parameterize ([current-input-port (open-input-file "/dev/tty")])
-               (system* "/bin/stty" "-g"))))))
-      (original-stty-settings saved))
-    ;; Enter raw mode via stty
-    (parameterize ([current-input-port (open-input-file "/dev/tty")])
-      (system* "/bin/stty" "raw" "-echo" "-icanon" "-isig" "-iexten"
-               "-ixon" "-brkint" "-inlcr" "-igncr" "-icrnl" "-opost"
-               "min" "1" "time" "0"))))
+  (with-handlers ([exn:fail? (lambda (e)
+                               (raise (exn:fail:kettle:terminal:operation
+                                       (format "enter-raw-mode failed: ~a" (exn-message e))
+                                       (current-continuation-marks)
+                                       e
+                                       'enter-raw-mode)))])
+    (ensure-terminal-init!)
+    (terminal-raw-mode #t)))
 
 (define (exit-raw-mode)
-  "Restore the terminal to its original state."
-  (with-handlers ([exn:fail?
-                   (lambda (e)
-                     (raise (exn:fail:kettle:terminal:operation
-                             (format "exit-raw-mode failed: ~a" (exn-message e))
-                             (current-continuation-marks)
-                             e
-                             'exit-raw-mode)))])
-    (define saved (original-stty-settings))
-    (when saved
-      (parameterize ([current-input-port (open-input-file "/dev/tty")])
-        ;; Try restoring saved settings; fall back to 'sane' if that fails
-        ;; (e.g. uutils stty doesn't accept its own -g output)
-        (unless (system* "/bin/stty" saved)
-          (system* "/bin/stty" "sane")))
-      (original-stty-settings #f))))
+  (with-handlers ([exn:fail? (lambda (e)
+                               (raise (exn:fail:kettle:terminal:operation
+                                       (format "exit-raw-mode failed: ~a" (exn-message e))
+                                       (current-continuation-marks)
+                                       e
+                                       'exit-raw-mode)))])
+    (terminal-raw-mode #f)))
 
+;; Returns (cons width height). Uses ioctl TIOCGWINSZ via #%terminal.
 (define (get-terminal-size)
-  "Get the current terminal size as (cons width height)."
   (with-handlers ([exn:fail? (lambda (e) (cons 80 24))])
-    (define output
-      (string-trim
-       (with-output-to-string
-         (lambda ()
-           (parameterize ([current-input-port (open-input-file "/dev/tty")])
-             (system* "/bin/stty" "size"))))))
-    (define parts (string-split output))
-    (if (= (length parts) 2)
-        (cons (string->number (second parts))
-              (string->number (first parts)))
-        (cons 80 24))))
+    (ensure-terminal-init!)
+    (define size (terminal-get-screen-size))
+    (cons (cdr size) (car size))))
 
 (define (set-terminal-title title)
-  "Set the terminal window title."
   (display (format "~a]0;~a\a" ESC title) (tty-output))
   (flush-output (tty-output)))
 
 (define (clear-screen [port (tty-output)])
-  "Clear the terminal screen."
   (display (format "~a[2J~a[H" ESC ESC) port)
   (flush-output port))
 
@@ -184,12 +160,13 @@
 (define (suspend-terminal #:alt-screen [alt-screen #f]
                           #:mouse [mouse #f]
                           #:focus-events [focus-events #f])
-  "Suspend the terminal - restore original state for backgrounding.
-   Returns a thunk to restore the TUI state."
-  (when mouse (disable-mouse))
+  (when mouse
+    (disable-mouse))
   (disable-bracketed-paste)
-  (when focus-events (disable-focus-events))
-  (when alt-screen (exit-alt-screen))
+  (when focus-events
+    (disable-focus-events))
+  (when alt-screen
+    (exit-alt-screen))
   (show-cursor)
   (exit-raw-mode)
   (flush-output (tty-output))
@@ -198,9 +175,11 @@
     (enter-raw-mode)
     (hide-cursor)
     (clear-screen)
-    (when alt-screen (enter-alt-screen))
+    (when alt-screen
+      (enter-alt-screen))
     (enable-bracketed-paste)
-    (when focus-events (enable-focus-events))
+    (when focus-events
+      (enable-focus-events))
     (case mouse
       [(cell-motion) (enable-mouse-cell-motion)]
       [(all-motion) (enable-mouse-all-motion)]
@@ -208,7 +187,6 @@
     (flush-output (tty-output))))
 
 (define (resume-terminal restore-fn)
-  "Resume the terminal using the restore function."
   (when restore-fn
     (restore-fn)))
 
@@ -217,28 +195,35 @@
                            #:alt-screen [alt-screen #f]
                            #:mouse [mouse #f]
                            #:focus-events [focus-events #t])
-  "Execute thunk with the terminal in raw TUI mode."
   (define raw-ok #f)
-  (dynamic-wind
-    (lambda ()
-      (enter-raw-mode)
-      (set! raw-ok #t)
-      (when raw-ok
-        (hide-cursor)
-        (clear-screen))
-      (when alt-screen (enter-alt-screen))
-      (when raw-ok (enable-bracketed-paste))
-      (when focus-events (enable-focus-events))
-      (case mouse
-        [(cell-motion) (enable-mouse-cell-motion)]
-        [(all-motion) (enable-mouse-all-motion)]
-        [else (void)]))
-    thunk
-    (lambda ()
-      (with-handlers ([exn:fail? void])
-        (when alt-screen (exit-alt-screen))
-        (when mouse (disable-mouse))
-        (when focus-events (disable-focus-events))
-        (when raw-ok (disable-bracketed-paste))
-        (when raw-ok (show-cursor))
-        (when raw-ok (exit-raw-mode))))))
+  (dynamic-wind (lambda ()
+                  (enter-raw-mode)
+                  (set! raw-ok #t)
+                  (when raw-ok
+                    (hide-cursor)
+                    (clear-screen))
+                  (when alt-screen
+                    (enter-alt-screen))
+                  (when raw-ok
+                    (enable-bracketed-paste))
+                  (when focus-events
+                    (enable-focus-events))
+                  (case mouse
+                    [(cell-motion) (enable-mouse-cell-motion)]
+                    [(all-motion) (enable-mouse-all-motion)]
+                    [else (void)]))
+                thunk
+                (lambda ()
+                  (with-handlers ([exn:fail? void])
+                    (when alt-screen
+                      (exit-alt-screen))
+                    (when mouse
+                      (disable-mouse))
+                    (when focus-events
+                      (disable-focus-events))
+                    (when raw-ok
+                      (disable-bracketed-paste))
+                    (when raw-ok
+                      (show-cursor))
+                    (when raw-ok
+                      (exit-raw-mode))))))

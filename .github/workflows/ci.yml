@@ -20,10 +20,18 @@ jobs:
           version: stable
 
       - name: Install tmux
-        run: sudo apt-get install -y tmux
+        run: sudo apt-get update && sudo apt-get install -y tmux
 
       - name: Install packages
         run: raco pkg install --auto --no-docs ./kettle-lib ./kettle-doc ./kettle-test ./kettle
 
-      - name: Run tests
-        run: raco test -y kettle-test/kettle/tests/
+      - name: Run unit and integration tests
+        run: |
+          raco test -y kettle-test/kettle/tests/test-counter.rkt
+          raco test -y kettle-test/kettle/tests/test-stopwatch.rkt
+          raco test -y kettle-test/kettle/tests/test-todo.rkt
+          raco test -y kettle-test/kettle/tests/test-viewer.rkt
+          raco test -y kettle-test/kettle/tests/test-integration.rkt
+
+      - name: Run e2e tests
+        run: raco test -y kettle-test/kettle/tests/test-e2e.rkt

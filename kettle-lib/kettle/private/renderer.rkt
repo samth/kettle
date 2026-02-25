@@ -244,9 +244,11 @@
     (when last-style
       (write-string (ansi-reset) out)
       (set! last-style #f))
-    ;; Newline between rows (not after last)
+    ;; CR+LF between rows: in raw mode OPOST is off, so a bare
+    ;; newline only does LF (cursor moves down but stays at the
+    ;; same column).  We need CR to return to column 1.
     (when (< row-idx (sub1 (cell-buffer-h buf)))
-      (newline out)))
+      (write-string "\r\n" out)))
   (get-output-string out))
 
 ;; Convert a style struct to an ANSI opening escape sequence

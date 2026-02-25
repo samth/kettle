@@ -51,6 +51,10 @@
 ;;; Utilities
 ;;; ============================================================
 
+;; Use a dedicated tmux socket so test sessions get the exact
+;; dimensions requested, unaffected by any user tmux server.
+(define tmux-socket "kettle-test")
+
 ;; Check if tmux is available on this system.
 (define (tmux-available?)
   (define-values (proc stdout stdin stderr) (subprocess #f #f #f (find-executable-path "tmux") "-V"))
@@ -65,7 +69,8 @@
   (define tmux-path (find-executable-path "tmux"))
   (unless tmux-path
     (error 'tmux-run "tmux not found on PATH"))
-  (define-values (proc stdout stdin stderr) (apply subprocess #f #f #f tmux-path args))
+  (define full-args (list* "-L" tmux-socket args))
+  (define-values (proc stdout stdin stderr) (apply subprocess #f #f #f tmux-path full-args))
   (define output (port->string stdout))
   (close-input-port stdout)
   (close-output-port stdin)
@@ -78,7 +83,8 @@
   (define tmux-path (find-executable-path "tmux"))
   (unless tmux-path
     (error 'tmux-run! "tmux not found on PATH"))
-  (define-values (proc stdout stdin stderr) (apply subprocess #f #f #f tmux-path args))
+  (define full-args (list* "-L" tmux-socket args))
+  (define-values (proc stdout stdin stderr) (apply subprocess #f #f #f tmux-path full-args))
   (define err-output (port->string stderr))
   (close-input-port stdout)
   (close-output-port stdin)
