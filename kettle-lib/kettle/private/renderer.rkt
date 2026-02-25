@@ -27,6 +27,7 @@
          ;; Cell buffer (for testing / advanced use)
          (struct-out cell)
          make-cell-buffer
+         cell-buffer->string
          paint!
          image->string)
 

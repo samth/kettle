@@ -20,7 +20,8 @@
                                        #:to-view (or/c #f (-> any/c image?))
                                        #:stop-when (or/c #f (-> any/c boolean?))
                                        #:alt-screen boolean?
-                                       #:mouse (or/c 'cell-motion 'all-motion #f))
+                                       #:mouse (or/c 'cell-motion 'all-motion #f)
+                                       #:show-fps boolean?)
                              void?)])
          on-key
          on-msg
@@ -81,7 +82,8 @@
              #:to-view [view-fn #f]
              #:stop-when [stop-fn #f]
              #:alt-screen [alt-screen #f]
-             #:mouse [mouse #f])
+             #:mouse [mouse #f]
+             #:show-fps [show-fps #f])
   (define model (run-model initial-value on-key-fn on-msg-fn view-fn stop-fn))
-  (define p (make-program model #:alt-screen alt-screen #:mouse mouse))
+  (define p (make-program model #:alt-screen alt-screen #:mouse mouse #:show-fps show-fps))
   (program-run p))

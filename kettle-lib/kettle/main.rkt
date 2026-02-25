@@ -305,5 +305,9 @@
          program-kill
          program-stop
          program-run
+         program-show-fps!
          current-program
-         define-tea-program)
+         define-tea-program
+
+         ;; === Renderer (for testing / advanced use) ===
+         cell-buffer->string)

@@ -144,6 +144,22 @@
        (sleep 0.15)
        (check-tmux-contains sc "Count: 3"))
 
+     (test-case "e2e counter: Alt+F toggles FPS display"
+       ;; Send Alt+F (Escape then f in tmux)
+       (tmux-send-keys sc "Escape")
+       (tmux-send-keys sc "f")
+       (tmux-wait-for sc "fps" #:timeout 3)
+       (check-tmux-contains sc "fps")
+       ;; Toggle off
+       (tmux-send-keys sc "Escape")
+       (tmux-send-keys sc "f")
+       (sleep 0.3)
+       (define cap (tmux-capture sc))
+       (check-false (regexp-match? #rx"fps" cap)
+                    (format "FPS should be hidden after second Alt+F, got: ~a" cap))
+       ;; Counter state should be unaffected
+       (check-tmux-contains sc "Count: 3"))
+
      (test-case "e2e counter: quit exits program"
        (tmux-send-keys sc "q")
        (sleep 0.3)

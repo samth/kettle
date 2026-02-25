@@ -12,6 +12,7 @@
 (require racket/match
          racket/list
          racket/string
+         racket/format
          racket/async-channel
          (for-syntax racket/base racket/list racket/syntax)
          (only-in racket/system system)
@@ -19,6 +20,8 @@
          "terminal.rkt"
          "input.rkt"
          "renderer.rkt"
+         "image.rkt"
+         "style.rkt"
          "errors.rkt"
          "subscriptions.rkt")
 
@@ -29,6 +32,7 @@
          program-kill
          program-stop
          program-run
+         program-show-fps!
          current-program
          define-tea-program)
 
@@ -44,13 +48,17 @@
    [tty-stream #:mutable]
    [input-thread #:mutable]
    [active-subs #:mutable]      ;; list of current subscription specs
-   [sub-stoppers #:mutable])    ;; hash: subscription-key -> stopper thunk
+   [sub-stoppers #:mutable]     ;; hash: subscription-key -> stopper thunk
+   [show-fps? #:mutable]        ;; #t to overlay FPS counter
+   [last-render-time #:mutable] ;; inexact milliseconds of last render
+   [fps-value #:mutable])       ;; current smoothed FPS value
   #:transparent)
 
 ;; Create a new program with the given initial model.
 (define (make-program model
                       #:alt-screen [alt-screen #f]
-                      #:mouse [mouse #f])
+                      #:mouse [mouse #f]
+                      #:show-fps [show-fps #f])
   (when (and mouse (not (memq mouse '(cell-motion all-motion))))
     (error 'make-program "Invalid :mouse option ~s; expected 'cell-motion, 'all-motion, or #f" mouse))
   (define opts (list 'alt-screen (and alt-screen #t)
@@ -65,6 +73,9 @@
            #f  ; input-thread
            '() ; active-subs
            (make-hash) ; sub-stoppers
+           (and show-fps #t)  ; show-fps?
+           #f  ; last-render-time
+           0.0 ; fps-value
            ))
 
 ;; Send a message to the program's update loop.
@@ -83,6 +94,35 @@
 ;; Request the program to stop.
 (define (program-stop p)
   (set-program-running?! p #f))
+
+;; Toggle FPS display at runtime.
+(define (program-show-fps! p show?)
+  (set-program-show-fps?! p (and show? #t)))
+
+;; Overlay an FPS counter in the top-right corner of an image.
+;; Uses exponential moving average for smooth display.
+(define fps-label-style (make-style #:foreground "33" #:background "40" #:bold #t))
+(define (overlay-fps img p)
+  (define now (current-inexact-milliseconds))
+  (define last (program-last-render-time p))
+  (set-program-last-render-time! p now)
+  (when last
+    (define dt (- now last))
+    (when (> dt 0)
+      (define instant-fps (/ 1000.0 dt))
+      (define old-fps (program-fps-value p))
+      ;; Exponential moving average with alpha=0.2
+      (define alpha 0.2)
+      (define new-fps (+ (* alpha instant-fps) (* (- 1 alpha) old-fps)))
+      (set-program-fps-value! p new-fps)))
+  (define fps-str (format " ~a fps " (~r (program-fps-value p) #:precision '(= 0))))
+  (define label (styled fps-label-style (text fps-str)))
+  (define w (image-w img))
+  (define label-w (image-w label))
+  ;; Place label at top-right using zcat + pad
+  (if (> w label-w)
+      (zcat (pad label #:left (- w label-w)) img)
+      img))
 
 (define (opts-ref opts key [default #f])
   (let loop ([l opts])
@@ -130,7 +170,11 @@
          (run-command p init-cmd))
 
        ;; Render initial view
-       (render! (program-renderer* p) (view (program-model p)))
+       (let ([img (view (program-model p))])
+         (render! (program-renderer* p)
+                  (if (and (program-show-fps? p) (image? img))
+                      (overlay-fps img p)
+                      img)))
 
        ;; Start initial subscriptions
        (sync-subscriptions! p)
@@ -238,6 +282,13 @@
         [(quit-msg? m)
          (set-program-running?! p #f)
          (return (void))]
+        ;; FPS toggle hotkey: Alt+F
+        [(and (key-msg? m)
+              (key-msg-alt m)
+              (let ([k (key-msg-key m)])
+                (and (char? k) (char=? k #\f))))
+         (set-program-show-fps?! p (not (program-show-fps? p)))
+         (set! should-render #t)]
         ;; All other messages
         [else
          (define-values (new-model cmd)
@@ -253,7 +304,12 @@
 
   ;; Render once
   (when should-render
-    (render! (program-renderer* p) (view (program-model p)))
+    (define img (view (program-model p)))
+    (define final-img
+      (if (and (program-show-fps? p) (image? img))
+          (overlay-fps img p)
+          img))
+    (render! (program-renderer* p) final-img)
     ;; Re-evaluate subscriptions after model changes
     (sync-subscriptions! p)))
 

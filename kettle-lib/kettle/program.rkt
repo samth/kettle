@@ -11,13 +11,16 @@
          ;; Contracted exports from program.rkt
          (contract-out [make-program
                         (->* (tea-model?)
-                             (#:alt-screen boolean? #:mouse (or/c 'cell-motion 'all-motion #f))
+                             (#:alt-screen boolean?
+                              #:mouse (or/c 'cell-motion 'all-motion #f)
+                              #:show-fps boolean?)
                              program?)]
                        [program-run (-> program? void?)]
                        [program-send (-> program? msg? void?)]
                        [program-quit (-> program? void?)]
                        [program-kill (-> program? void?)]
-                       [program-stop (-> program? void?)])
+                       [program-stop (-> program? void?)]
+                       [program-show-fps! (-> program? boolean? void?)])
 
          ;; Non-contracted re-exports
          (struct-out program)
