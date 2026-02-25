@@ -9,7 +9,8 @@
          kettle/examples/counter
          kettle/examples/stopwatch
          kettle/examples/todo
-         kettle/examples/viewer)
+         kettle/examples/viewer
+         kettle/examples/log-viewer)
 
 ;;; ============================================================
 ;;; Counter (run-style)
@@ -183,6 +184,50 @@
 (test-case "viewer: quit with q"
   (define fv (make-file-viewer sample-content "test.txt"))
   (define tp (make-test-program fv))
+  (test-program-press tp #\q)
+  (check-test-program-done tp))
+
+;;; ============================================================
+;;; Log Viewer (vector-based, O(1) scroll)
+;;; ============================================================
+
+(define log-sample-content
+  (string-join (for/list ([i (in-range 1 201)])
+                 (format "2026-02-24 INFO Line ~a of log output" i))
+               "\n"))
+
+(test-case "log-viewer: initial view shows line 1 with line number"
+  (define lv (make-log-viewer-from-string log-sample-content "test.log" #:width 80 #:height 20))
+  (define tp (make-test-program lv))
+  (check-test-program-running tp)
+  (check-test-program-contains tp "test.log")
+  (check-test-program-contains tp "200 lines")
+  (check-test-program-contains tp "| 2026-02-24 INFO Line 1 of log output"))
+
+(test-case "log-viewer: scroll down advances line numbers"
+  (define lv (make-log-viewer-from-string log-sample-content "test.log" #:width 80 #:height 10))
+  (define tp (make-test-program lv))
+  (test-program-press tp #\j)
+  (test-program-press tp #\j)
+  (test-program-press tp #\j)
+  (check-test-program-contains tp "| 2026-02-24 INFO Line 4 of log output"))
+
+(test-case "log-viewer: jump to bottom with G shows last lines"
+  (define lv (make-log-viewer-from-string log-sample-content "test.log" #:width 80 #:height 10))
+  (define tp (make-test-program lv))
+  (test-program-press tp #\G)
+  (check-test-program-contains tp "| 2026-02-24 INFO Line 200 of log output"))
+
+(test-case "log-viewer: resize adapts view"
+  (define lv (make-log-viewer-from-string log-sample-content "test.log" #:width 80 #:height 10))
+  (define tp (make-test-program lv))
+  (test-program-resize tp 120 40)
+  (check-test-program-running tp)
+  (check-test-program-contains tp "test.log"))
+
+(test-case "log-viewer: quit with q"
+  (define lv (make-log-viewer-from-string log-sample-content "test.log"))
+  (define tp (make-test-program lv))
   (test-program-press tp #\q)
   (check-test-program-done tp))
 

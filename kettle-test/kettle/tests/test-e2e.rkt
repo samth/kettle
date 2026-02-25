@@ -16,6 +16,7 @@
 (define stopwatch-path (collection-file-path "stopwatch.rkt" "kettle" "examples"))
 (define todo-path (collection-file-path "todo.rkt" "kettle" "examples"))
 (define viewer-path (collection-file-path "viewer.rkt" "kettle" "examples"))
+(define log-viewer-path (collection-file-path "log-viewer.rkt" "kettle" "examples"))
 
 ;; Guard: skip all tests if tmux is not available
 (define have-tmux?
@@ -37,11 +38,24 @@
                          #:exists 'replace)
   temp-file)
 
+;; Helper: make a log-viewer temp file with realistic log lines
+(define (make-log-temp-file lines)
+  (define temp-file (make-temporary-file "klv~a.log"))
+  (call-with-output-file temp-file
+                         (lambda (out)
+                           (for ([i (in-range 1 (add1 lines))])
+                             (fprintf out "2026-02-24 12:00:00 INFO Processing request ~a" i)
+                             (unless (= i lines)
+                               (newline out))))
+                         #:exists 'replace)
+  temp-file)
+
 (when have-tmux?
 
   ;; Create temp files before starting sessions
   (define viewer-temp-file (make-viewer-temp-file 100))
   (define viewer-short-temp-file (make-viewer-temp-file 5))
+  (define log-viewer-temp-file (make-log-temp-file 100000))
 
   ;; Start ALL sessions in parallel by launching them from threads.
   ;; tmux-start's startup-delay is 0.5s -- by starting all at once
@@ -51,6 +65,7 @@
   (define stopwatch-box (box #f))
   (define viewer-box (box #f))
   (define viewer-short-box (box #f))
+  (define log-viewer-box (box #f))
 
   (define threads
     (list
@@ -65,7 +80,12 @@
       (lambda ()
         (set-box!
          viewer-short-box
-         (tmux-start viewer-path #:width 80 #:height 24 #:args (list viewer-short-temp-file)))))))
+         (tmux-start viewer-path #:width 80 #:height 24 #:args (list viewer-short-temp-file)))))
+     (thread
+      (lambda ()
+        (set-box!
+         log-viewer-box
+         (tmux-start log-viewer-path #:width 80 #:height 24 #:args (list log-viewer-temp-file)))))))
 
   ;; Wait for all sessions to start
   (for-each thread-wait threads)
@@ -75,17 +95,18 @@
   (define sw (unbox stopwatch-box))
   (define sv (unbox viewer-box))
   (define svs (unbox viewer-short-box))
+  (define slv (unbox log-viewer-box))
 
   ;; Cleanup at end
   (define (cleanup-all)
     (for-each (lambda (s)
                 (with-handlers ([exn:fail? void])
                   (tmux-kill s)))
-              (list sc st sw sv svs))
+              (list sc st sw sv svs slv))
     (for-each (lambda (f)
                 (with-handlers ([exn:fail? void])
                   (delete-file f)))
-              (list viewer-temp-file viewer-short-temp-file)))
+              (list viewer-temp-file viewer-short-temp-file log-viewer-temp-file)))
 
   (dynamic-wind
    void
@@ -339,5 +360,36 @@
      (test-case "e2e viewer: short file shows all lines"
        (tmux-wait-for svs "Line 1" #:timeout 10)
        (check-tmux-contains svs "Line 1")
-       (check-tmux-contains svs "Line 5")))
+       (check-tmux-contains svs "Line 5"))
+
+     ;;; ============================================================
+     ;;; Log Viewer (100K lines)
+     ;;; ============================================================
+
+     (test-case "e2e log-viewer: initial render shows line numbers and content"
+       (tmux-wait-for slv "request 1" #:timeout 15)
+       (check-tmux-contains slv "1 |")
+       (check-tmux-contains slv "request 1")
+       (check-tmux-contains slv "100000 lines")
+       (check-tmux-contains slv "j/k:scroll"))
+
+     (test-case "e2e log-viewer: scroll down with j"
+       (for ([_ (in-range 5)])
+         (tmux-send-keys slv "j")
+         (sleep 0.03))
+       (sleep 0.15)
+       (check-tmux-matches slv #rx"request"))
+
+     (test-case "e2e log-viewer: jump to bottom with G"
+       (tmux-send-keys slv "G")
+       (tmux-wait-for slv "100000" #:timeout 5)
+       (check-tmux-contains slv "100000"))
+
+     (test-case "e2e log-viewer: quit exits program"
+       (tmux-send-keys slv "q")
+       (sleep 0.3)
+       (define captured (tmux-capture slv #:trim #t))
+       (check-false (regexp-match? #rx"j/k:scroll" captured)
+                    (format "Log viewer TUI should no longer be visible after quit, got: ~a"
+                            captured))))
    cleanup-all)) ;; end when have-tmux?

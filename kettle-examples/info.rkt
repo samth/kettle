@@ -2,9 +2,9 @@
 
 (define collection 'multi)
 (define version "1.0.0")
-(define deps '("base" "kettle-lib" "kettle-examples" "rackunit-lib"))
+(define deps '("base" "kettle-lib"))
 
-(define pkg-desc "tests for \"kettle\"")
+(define pkg-desc "examples for \"kettle\"")
 
 (define pkg-authors '(green))
 
