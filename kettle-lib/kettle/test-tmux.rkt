@@ -32,6 +32,9 @@
          check-quit-exits
          with-e2e-sessions
 
+         ;; Raw byte injection
+         tmux-send-raw
+
          ;; Predicate
          tmux-available?
 

@@ -9,9 +9,11 @@
 
 (require rackunit
          racket/file
+         racket/runtime-path
          setup/collects
          kettle/test-tmux)
 
+(define-runtime-path kitty-test-path "kitty-test-program.rkt")
 (define counter-path (collection-file-path "counter.rkt" "kettle" "examples"))
 (define stopwatch-path (collection-file-path "stopwatch.rkt" "kettle" "examples"))
 (define todo-path (collection-file-path "todo.rkt" "kettle" "examples"))
@@ -250,6 +252,66 @@
                        (check-tmux-contains slv "100000"))
                      (test-case "e2e log-viewer: quit exits program"
                        (check-quit-exits slv "q" "j/k:scroll")))
+
+  ;;; ============================================================
+  ;;; Kitty Keyboard Protocol (CSI u injection)
+  ;;; ============================================================
+  (with-e2e-sessions ([sk kitty-test-path #:width 80 #:height 24])
+                     (test-case "e2e kitty: program starts with kitty keyboard enabled"
+                       (tmux-wait-for sk "KITTY-TEST-READY" #:timeout 15)
+                       (check-tmux-contains sk "NO-EVENTS"))
+                     (test-case "e2e kitty: CSI u press for 'a'"
+                       ;; ESC[97;1u = key 'a', no modifiers, press
+                       (tmux-send-raw sk "\x1b[97;1u")
+                       (tmux-wait-for sk "KEY:a" #:timeout 3)
+                       (check-tmux-contains sk "KEY:a:press:shift=#f"))
+                     (test-case "e2e kitty: CSI u press with Ctrl"
+                       ;; ESC[106;5u = key 'j', Ctrl, press
+                       (tmux-send-raw sk "\x1b[106;5u")
+                       (tmux-wait-for sk "KEY:j:ctrl" #:timeout 3)
+                       (check-tmux-contains sk "KEY:j:ctrl:press:shift=#f"))
+                     (test-case "e2e kitty: CSI u press with Alt"
+                       ;; ESC[98;3u = key 'b', Alt, press
+                       (tmux-send-raw sk "\x1b[98;3u")
+                       (tmux-wait-for sk "KEY:b:alt" #:timeout 3)
+                       (check-tmux-contains sk "KEY:b:alt:press:shift=#f"))
+                     (test-case "e2e kitty: CSI u press with Shift"
+                       ;; ESC[99;2u = key 'c', Shift, press
+                       (tmux-send-raw sk "\x1b[99;2u")
+                       (tmux-wait-for sk "KEY:c" #:timeout 3)
+                       (check-tmux-contains sk "KEY:c:press:shift=#t"))
+                     (test-case "e2e kitty: CSI u key repeat"
+                       ;; ESC[120;1:2u = key 'x', no modifiers, repeat
+                       (tmux-send-raw sk "\x1b[120;1:2u")
+                       (tmux-wait-for sk "KEY:x" #:timeout 3)
+                       (check-tmux-contains sk "KEY:x:repeat:shift=#f"))
+                     (test-case "e2e kitty: CSI u key release"
+                       ;; ESC[97;1:3u = key 'a', no modifiers, release
+                       (tmux-send-raw sk "\x1b[97;1:3u")
+                       (tmux-wait-for sk "REL:a" #:timeout 3)
+                       (check-tmux-contains sk "REL:a"))
+                     (test-case "e2e kitty: CSI u release with Ctrl+Shift"
+                       ;; ESC[106;6:3u = key 'j', Ctrl+Shift, release
+                       (tmux-send-raw sk "\x1b[106;6:3u")
+                       (tmux-wait-for sk "REL:j:ctrl:shift" #:timeout 3)
+                       (check-tmux-contains sk "REL:j:ctrl:shift"))
+                     (test-case "e2e kitty: CSI u arrow key"
+                       ;; ESC[57352;1u = arrow up
+                       (tmux-send-raw sk "\x1b[57352;1u")
+                       (tmux-wait-for sk "KEY:up" #:timeout 3)
+                       (check-tmux-contains sk "KEY:up:press:shift=#f"))
+                     (test-case "e2e kitty: CSI u Enter key"
+                       ;; ESC[13;1u = Enter
+                       (tmux-send-raw sk "\x1b[13;1u")
+                       (tmux-wait-for sk "KEY:enter" #:timeout 3)
+                       (check-tmux-contains sk "KEY:enter:press:shift=#f"))
+                     (test-case "e2e kitty: legacy keys still work"
+                       ;; Send a plain 'x' via tmux (not CSI u)
+                       (tmux-send-keys sk "x")
+                       (tmux-wait-for sk "KEY:x" #:timeout 3)
+                       (check-tmux-contains sk "KEY:x:legacy"))
+                     (test-case "e2e kitty: quit with q"
+                       (check-quit-exits sk "q" "KITTY-TEST-READY")))
 
   ;; Clean up temp files
   (for-each (lambda (f)

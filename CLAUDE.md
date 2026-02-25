@@ -65,6 +65,21 @@ raco test -y kettle-lib/kettle/tests/ --exclude test-e2e.rkt
 raco test -y kettle-lib/kettle/tests/test-e2e.rkt
 ```
 
+## Manual Testing with tmux
+
+Use `tmux-run.sh` to run a Kettle program in a tmux session, optionally send keys, and capture output:
+
+```bash
+# Run a program, wait for startup, capture output
+kettle-test/kettle/tests/tmux-run.sh <racket-file> [wait-secs] [keys-to-send] [post-key-wait]
+
+# Examples:
+kettle-test/kettle/tests/tmux-run.sh test-kitty-manual.rkt 10
+kettle-test/kettle/tests/tmux-run.sh test-kitty-manual.rkt 10 "+" 2
+```
+
+This is useful for testing TUI programs that need a real terminal (e.g. Kitty keyboard protocol, mouse input, alternate screen).
+
 ## License
 
 MIT

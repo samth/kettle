@@ -11,6 +11,7 @@
 (require racket/port
          racket/string
          racket/format
+         racket/file
          rackunit
          (for-syntax racket/base
                      syntax/parse))
@@ -39,6 +40,9 @@
          send+wait
          check-quit-exits
          with-e2e-sessions
+
+         ;; Raw byte injection (for Kitty keyboard protocol testing)
+         tmux-send-raw
 
          ;; Predicate
          tmux-available?
@@ -169,6 +173,20 @@
 ;; key-spec is a tmux key string: "a", "C-q", "Enter", "Up", "Down", "Space", "Tab", etc.
 (define (tmux-send-keys session key-spec)
   (tmux-run! "send-keys" "-t" (tmux-session-name session) key-spec))
+
+;; Send raw bytes to a tmux session via load-buffer + paste-buffer.
+;; This bypasses tmux key interpretation, useful for injecting raw escape
+;; sequences like CSI u (Kitty keyboard protocol).
+;; raw-string should be a string containing the bytes to inject.
+(define (tmux-send-raw session raw-string)
+  (define temp-file (make-temporary-file "kt-raw~a"))
+  (call-with-output-file temp-file
+                         (lambda (out) (display raw-string out))
+                         #:exists 'replace)
+  (tmux-run! "load-buffer" (path->string temp-file))
+  (tmux-run! "paste-buffer" "-t" (tmux-session-name session))
+  (with-handlers ([exn:fail? void])
+    (delete-file temp-file)))
 
 ;; Type a string character by character.
 ;; Each character is sent individually with a small delay between them.
