@@ -13,10 +13,10 @@
 (define (counter-on-key count km)
   (define key (key-msg-key km))
   (cond
-    [(and (char? key) (or (char=? key #\+) (char=? key #\=))) (values (add1 count) #f)]
-    [(and (char? key) (or (char=? key #\-) (char=? key #\_))) (values (sub1 count) #f)]
-    [(and (char? key) (char=? key #\q)) (values count (quit-cmd))]
-    [else (values count #f)]))
+    [(and (char? key) (or (char=? key #\+) (char=? key #\=))) (add1 count)]
+    [(and (char? key) (or (char=? key #\-) (char=? key #\_))) (sub1 count)]
+    [(and (char? key) (char=? key #\q)) (cmd count (quit-cmd))]
+    [else count]))
 
 (define (counter-view count)
   (vcat 'left

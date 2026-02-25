@@ -15,8 +15,8 @@
 
 (provide (contract-out [run
                         (->* (any/c)
-                             (#:on-key (or/c #f (-> any/c key-msg? (values any/c any/c)))
-                                       #:on-msg (or/c #f (-> any/c msg? (values any/c any/c)))
+                             (#:on-key (or/c #f (-> any/c key-msg? any/c))
+                                       #:on-msg (or/c #f (-> any/c msg? any/c))
                                        #:to-view (or/c #f (-> any/c image?))
                                        #:stop-when (or/c #f (-> any/c boolean?))
                                        #:alt-screen boolean?
@@ -48,28 +48,27 @@
 ;; Internal wrapper implementing gen:tea-model around a plain value.
 (struct run-model (value on-key-fn on-msg-fn view-fn stop-fn)
   #:methods gen:tea-model
-  [(define (init m)
-     (values m #f))
+  [(define (init m) m)
    (define (update m msg)
      (cond
        ;; Check stop condition before processing
-       [(and (run-model-stop-fn m) ((run-model-stop-fn m) (run-model-value m))) (values m (quit-cmd))]
+       [(and (run-model-stop-fn m) ((run-model-stop-fn m) (run-model-value m))) (cmd m (quit-cmd))]
        ;; Key messages go to on-key handler
        [(and (key-msg? msg) (run-model-on-key-fn m))
-        (define-values (new-val cmd) ((run-model-on-key-fn m) (run-model-value m) msg))
+        (define-values (new-val cmd*) (extract-update-result ((run-model-on-key-fn m) (run-model-value m) msg)))
         (define new-model (struct-copy run-model m [value new-val]))
         ;; Check stop after update
         (if (and (run-model-stop-fn m) ((run-model-stop-fn m) new-val))
-            (values new-model (quit-cmd))
-            (values new-model cmd))]
+            (cmd new-model (quit-cmd))
+            (if cmd* (cmd new-model cmd*) new-model))]
        ;; All other messages go to on-msg handler
        [(run-model-on-msg-fn m)
-        (define-values (new-val cmd) ((run-model-on-msg-fn m) (run-model-value m) msg))
+        (define-values (new-val cmd*) (extract-update-result ((run-model-on-msg-fn m) (run-model-value m) msg)))
         (define new-model (struct-copy run-model m [value new-val]))
         (if (and (run-model-stop-fn m) ((run-model-stop-fn m) new-val))
-            (values new-model (quit-cmd))
-            (values new-model cmd))]
-       [else (values m #f)]))
+            (cmd new-model (quit-cmd))
+            (if cmd* (cmd new-model cmd*) new-model))]
+       [else m]))
    (define (view m)
      (if (run-model-view-fn m)
          ((run-model-view-fn m) (run-model-value m))

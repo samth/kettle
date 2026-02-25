@@ -64,6 +64,10 @@
          (struct-out mouse-scroll-event)
          (struct-out mouse-msg)
 
+         ;; === Update Result ===
+         (struct-out cmd)
+         extract-update-result
+
          ;; === Commands ===
          quit-cmd
          batch

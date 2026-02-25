@@ -41,7 +41,7 @@
   #:transparent
   #:methods gen:tea-model
   [(define (init vp)
-     (values vp #f))
+     vp)
    (define (update vp msg)
      (viewport-update vp msg))
    (define (view vp)
@@ -189,38 +189,38 @@
        [(or (and (char? key) (char=? key #\space))
             (eq? key 'page-down)
             (and ctrl? (char? key) (char=? key #\f)))
-        (values (viewport-page-down vp) #f)]
+        (viewport-page-down vp)]
        ;; Page up
        [(or (eq? key 'page-up) (and ctrl? (char? key) (char=? key #\b)))
-        (values (viewport-page-up vp) #f)]
+        (viewport-page-up vp)]
        ;; Half page down
-       [(and ctrl? (char? key) (char=? key #\d)) (values (viewport-half-page-down vp) #f)]
+       [(and ctrl? (char? key) (char=? key #\d)) (viewport-half-page-down vp)]
        ;; Half page up
-       [(and ctrl? (char? key) (char=? key #\u)) (values (viewport-half-page-up vp) #f)]
+       [(and ctrl? (char? key) (char=? key #\u)) (viewport-half-page-up vp)]
        ;; Down/j
-       [(or (eq? key 'down) (and (char? key) (char=? key #\j))) (values (viewport-scroll-down vp) #f)]
+       [(or (eq? key 'down) (and (char? key) (char=? key #\j))) (viewport-scroll-down vp)]
        ;; Up/k
-       [(or (eq? key 'up) (and (char? key) (char=? key #\k))) (values (viewport-scroll-up vp) #f)]
+       [(or (eq? key 'up) (and (char? key) (char=? key #\k))) (viewport-scroll-up vp)]
        ;; Left/h
-       [(or (eq? key 'left) (and (char? key) (char=? key #\h))) (values (viewport-scroll-left vp) #f)]
+       [(or (eq? key 'left) (and (char? key) (char=? key #\h))) (viewport-scroll-left vp)]
        ;; Right/l
        [(or (eq? key 'right) (and (char? key) (char=? key #\l)))
-        (values (viewport-scroll-right vp) #f)]
+        (viewport-scroll-right vp)]
        ;; Home/g
-       [(or (eq? key 'home) (and (char? key) (char=? key #\g))) (values (viewport-goto-top vp) #f)]
+       [(or (eq? key 'home) (and (char? key) (char=? key #\g))) (viewport-goto-top vp)]
        ;; End/G
-       [(or (eq? key 'end) (and (char? key) (char=? key #\G))) (values (viewport-goto-bottom vp) #f)]
-       [else (values vp #f)])]
+       [(or (eq? key 'end) (and (char? key) (char=? key #\G))) (viewport-goto-bottom vp)]
+       [else vp])]
 
     ;; Mouse wheel
     [(and (mouse-scroll-event? msg) (viewport-mouse-wheel-enabled? vp))
      (define dir (mouse-scroll-event-direction msg))
      (cond
-       [(eq? dir 'up) (values (viewport-scroll-up vp (viewport-mouse-wheel-delta vp)) #f)]
-       [(eq? dir 'down) (values (viewport-scroll-down vp (viewport-mouse-wheel-delta vp)) #f)]
-       [else (values vp #f)])]
+       [(eq? dir 'up) (viewport-scroll-up vp (viewport-mouse-wheel-delta vp))]
+       [(eq? dir 'down) (viewport-scroll-down vp (viewport-mouse-wheel-delta vp))]
+       [else vp])]
 
-    [else (values vp #f)]))
+    [else vp]))
 
 (define (viewport-view vp)
   (define visible (viewport-visible-lines-list vp))

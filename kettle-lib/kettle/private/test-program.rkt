@@ -116,7 +116,7 @@
   (cond
     [(quit-msg? msg) (set-test-program-done?! tp #t)]
     [else
-     (define-values (new-model cmd) (update (test-program-model tp) msg))
+     (define-values (new-model cmd) (extract-update-result (update (test-program-model tp) msg)))
      (set-test-program-model! tp new-model)
      ;; Process command and feed result messages back
      (define result-msgs (collect-command-messages cmd))
@@ -143,7 +143,7 @@
 (define (make-test-program model #:width [width 80] #:height [height 24])
   (define tp (test-program model width height #f '() '()))
   ;; Run init
-  (define-values (m cmd) (init model))
+  (define-values (m cmd) (extract-update-result (init model)))
   (set-test-program-model! tp m)
   ;; Process init command
   (define init-msgs (collect-command-messages cmd))
@@ -168,28 +168,27 @@
 ;; Internal tea-model wrapper for run-style programs (mirrors run-model from run.rkt)
 (struct test-run-model (value on-key-fn on-msg-fn view-fn stop-fn)
   #:methods gen:tea-model
-  [(define (init m)
-     (values m #f))
+  [(define (init m) m)
    (define (update m msg)
      (cond
        ;; Check stop condition before processing
        [(and (test-run-model-stop-fn m) ((test-run-model-stop-fn m) (test-run-model-value m)))
-        (values m (quit-cmd))]
+        (cmd m (quit-cmd))]
        ;; Key messages go to on-key handler
        [(and (key-msg? msg) (test-run-model-on-key-fn m))
-        (define-values (new-val cmd) ((test-run-model-on-key-fn m) (test-run-model-value m) msg))
+        (define-values (new-val cmd*) (extract-update-result ((test-run-model-on-key-fn m) (test-run-model-value m) msg)))
         (define new-model (struct-copy test-run-model m [value new-val]))
         (if (and (test-run-model-stop-fn m) ((test-run-model-stop-fn m) new-val))
-            (values new-model (quit-cmd))
-            (values new-model cmd))]
+            (cmd new-model (quit-cmd))
+            (if cmd* (cmd new-model cmd*) new-model))]
        ;; All other messages go to on-msg handler
        [(test-run-model-on-msg-fn m)
-        (define-values (new-val cmd) ((test-run-model-on-msg-fn m) (test-run-model-value m) msg))
+        (define-values (new-val cmd*) (extract-update-result ((test-run-model-on-msg-fn m) (test-run-model-value m) msg)))
         (define new-model (struct-copy test-run-model m [value new-val]))
         (if (and (test-run-model-stop-fn m) ((test-run-model-stop-fn m) new-val))
-            (values new-model (quit-cmd))
-            (values new-model cmd))]
-       [else (values m #f)]))
+            (cmd new-model (quit-cmd))
+            (if cmd* (cmd new-model cmd*) new-model))]
+       [else m]))
    (define (view m)
      (if (test-run-model-view-fn m)
          ((test-run-model-view-fn m) (test-run-model-value m))

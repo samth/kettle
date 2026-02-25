@@ -26,26 +26,23 @@
         (if last
             (/ (- now last) 1000.0)
             0.0))
-      (values (struct-copy stopwatch self [elapsed (+ (stopwatch-elapsed self) dt)] [last-tick now])
-              #f)]
+      (struct-copy stopwatch self [elapsed (+ (stopwatch-elapsed self) dt)] [last-tick now])]
 
      ;; Space toggles start/stop
      [(and (key-msg? msg) (char? (key-msg-key msg)) (char=? (key-msg-key msg) #\space))
       (if (stopwatch-running? self)
-          (values (struct-copy stopwatch self [running? #f] [last-tick #f]) #f)
-          (values
-           (struct-copy stopwatch self [running? #t] [last-tick (current-inexact-milliseconds)])
-           #f))]
+          (struct-copy stopwatch self [running? #f] [last-tick #f])
+          (struct-copy stopwatch self [running? #t] [last-tick (current-inexact-milliseconds)]))]
 
      ;; r resets
      [(and (key-msg? msg) (char? (key-msg-key msg)) (char=? (key-msg-key msg) #\r))
-      (values (struct-copy stopwatch self [elapsed 0.0] [running? #f] [last-tick #f]) #f)]
+      (struct-copy stopwatch self [elapsed 0.0] [running? #f] [last-tick #f])]
 
      ;; q quits
      [(and (key-msg? msg) (char? (key-msg-key msg)) (char=? (key-msg-key msg) #\q))
-      (values self (quit-cmd))]
+      (cmd self (quit-cmd))]
 
-     [else (values self #f)]))
+     [else self]))
  #:subscriptions
  (lambda (self)
    (if (stopwatch-running? self)

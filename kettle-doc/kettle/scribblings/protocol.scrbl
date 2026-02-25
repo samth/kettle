@@ -18,12 +18,13 @@ interface.
 @defproc[(tea-model? [v any/c]) boolean?]{
   Returns @racket[#t] if @racket[v] implements @racket[gen:tea-model].}
 
-@defproc[(init [model tea-model?]) (values tea-model? (or/c procedure? #f))]{
-  Initialize the model. Returns @racket[(values model cmd)] where
-  @racket[cmd] is an optional initial command (or @racket[#f]).}
+@defproc[(init [model tea-model?]) (or/c tea-model? cmd?)]{
+  Initialize the model. Returns either a bare model (no command) or
+  @racket[(cmd model command)] when an initial command is needed.}
 
-@defproc[(update [model tea-model?] [message msg?]) (values tea-model? (or/c procedure? #f))]{
-  Handle a message and return @racket[(values new-model cmd)].}
+@defproc[(update [model tea-model?] [message msg?]) (or/c tea-model? cmd?)]{
+  Handle a message. Returns either a bare model (no command) or
+  @racket[(cmd model command)] when a command should be executed.}
 
 @defproc[(view [model tea-model?]) string?]{
   Render the model to a string for terminal display.}
@@ -103,6 +104,19 @@ interface.
                             [ctrl boolean?]
                             [action symbol?]) #:transparent]{
   Legacy mouse message (prefer the typed mouse event hierarchy above).}
+
+@section{Update Results}
+
+@defstruct[cmd ([model tea-model?] [value any/c]) #:transparent]{
+  Wraps a model together with a command. Returned from @racket[update]
+  or @racket[init] when a command should be executed. When no command
+  is needed, return the model directly without wrapping.}
+
+@defproc[(extract-update-result [v (or/c tea-model? cmd?)]) (values tea-model? (or/c procedure? #f))]{
+  Destructures an update or init return value into two values: the model
+  and the command. If @racket[v] is a @racket[cmd] struct, returns
+  @racket[(values (cmd-model v) (cmd-value v))]. Otherwise returns
+  @racket[(values v #f)].}
 
 @section{Commands}
 

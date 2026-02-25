@@ -12,39 +12,39 @@
 ;; --- counter-on-key tests ---
 
 (test-case "increment with +"
-  (define-values (new-count cmd) (counter-on-key 0 (char-key #\+)))
+  (define-values (new-count c) (extract-update-result (counter-on-key 0 (char-key #\+))))
   (check-equal? new-count 1)
-  (check-false cmd))
+  (check-false c))
 
 (test-case "increment with ="
-  (define-values (new-count cmd) (counter-on-key 5 (char-key #\=)))
+  (define-values (new-count c) (extract-update-result (counter-on-key 5 (char-key #\=))))
   (check-equal? new-count 6)
-  (check-false cmd))
+  (check-false c))
 
 (test-case "decrement with -"
-  (define-values (new-count cmd) (counter-on-key 3 (char-key #\-)))
+  (define-values (new-count c) (extract-update-result (counter-on-key 3 (char-key #\-))))
   (check-equal? new-count 2)
-  (check-false cmd))
+  (check-false c))
 
 (test-case "decrement with _"
-  (define-values (new-count cmd) (counter-on-key 0 (char-key #\_)))
+  (define-values (new-count c) (extract-update-result (counter-on-key 0 (char-key #\_))))
   (check-equal? new-count -1)
-  (check-false cmd))
+  (check-false c))
 
 (test-case "quit with q"
-  (define-values (new-count cmd) (counter-on-key 42 (char-key #\q)))
+  (define-values (new-count c) (extract-update-result (counter-on-key 42 (char-key #\q))))
   (check-equal? new-count 42)
-  (check-pred procedure? cmd))
+  (check-pred procedure? c))
 
 (test-case "unrecognized key is no-op"
-  (define-values (new-count cmd) (counter-on-key 7 (char-key #\x)))
+  (define-values (new-count c) (extract-update-result (counter-on-key 7 (char-key #\x))))
   (check-equal? new-count 7)
-  (check-false cmd))
+  (check-false c))
 
 (test-case "multiple increments"
-  (define-values (c1 _1) (counter-on-key 0 (char-key #\+)))
-  (define-values (c2 _2) (counter-on-key c1 (char-key #\+)))
-  (define-values (c3 _3) (counter-on-key c2 (char-key #\+)))
+  (define-values (c1 _1) (extract-update-result (counter-on-key 0 (char-key #\+))))
+  (define-values (c2 _2) (extract-update-result (counter-on-key c1 (char-key #\+))))
+  (define-values (c3 _3) (extract-update-result (counter-on-key c2 (char-key #\+))))
   (check-equal? c3 3))
 
 ;; --- counter-view tests ---

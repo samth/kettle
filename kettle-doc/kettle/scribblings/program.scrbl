@@ -57,12 +57,12 @@ input, and rendering.
   @racketblock[
     (defprogram counter
       #:fields ([count 0] [width 80])
-      #:init (values model #f)
+      #:init model
       #:update
         (cond
           [(and (key-msg? msg) (equal? (key-msg-key msg) #\q))
-           (values model (quit-cmd))]
-          [else (values model #f)])
+           (cmd model (quit-cmd))]
+          [else model])
       #:view
         (format "Count: ~a" (counter-count model)))
   ]}

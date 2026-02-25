@@ -23,8 +23,9 @@ A scrollable list with keyboard navigation (arrow keys and vim-style j/k).
                          [#:height height exact-positive-integer? 10]) list-view?]{
   Create a scrollable list view.}
 
-@defproc[(list-view-update [lv list-view?] [msg msg?]) (values list-view? (or/c procedure? #f))]{
-  Handle input for the list view.}
+@defproc[(list-view-update [lv list-view?] [msg msg?]) (or/c list-view? cmd?)]{
+  Handle input for the list view. Returns either an updated list view
+  (no command) or @racket[(cmd list-view command)].}
 
 @defproc[(list-view-render [lv list-view?]) string?]{
   Render the list view to a string.}

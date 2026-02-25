@@ -37,7 +37,7 @@
 (test-case "j scrolls down"
   (define fv (make-file-viewer sample-content "test.txt" #:width 40 #:height 8))
   (define vp-before (file-viewer-viewport fv))
-  (define-values (fv2 cmd) (update fv (char-key #\j)))
+  (define-values (fv2 cmd) (extract-update-result (update fv (char-key #\j))))
   (define vp-after (file-viewer-viewport fv2))
   ;; Viewport should have changed
   (check-not-equal? vp-before vp-after)
@@ -45,7 +45,7 @@
 
 (test-case "k scrolls up (no-op at top)"
   (define fv (make-file-viewer sample-content "test.txt" #:width 40 #:height 8))
-  (define-values (fv2 cmd) (update fv (char-key #\k)))
+  (define-values (fv2 cmd) (extract-update-result (update fv (char-key #\k))))
   (check-true (vp:viewport-at-top? (file-viewer-viewport fv2)))
   (check-false cmd))
 
@@ -53,14 +53,14 @@
 
 (test-case "q quits"
   (define fv (make-file-viewer sample-content "test.txt"))
-  (define-values (fv2 cmd) (update fv (char-key #\q)))
+  (define-values (fv2 cmd) (extract-update-result (update fv (char-key #\q))))
   (check-pred procedure? cmd))
 
 ;; --- Window resize ---
 
 (test-case "window-size-msg resizes viewport"
   (define fv (make-file-viewer sample-content "test.txt" #:width 40 #:height 10))
-  (define-values (fv2 cmd) (update fv (window-size-msg 60 20)))
+  (define-values (fv2 cmd) (extract-update-result (update fv (window-size-msg 60 20))))
   (check-false cmd)
   ;; The viewport should reflect the new dimensions
   (check-true (file-viewer? fv2)))
@@ -87,6 +87,6 @@
 (test-case "update does not mutate original"
   (define fv (make-file-viewer sample-content "test.txt" #:width 40 #:height 8))
   (define vp-before (file-viewer-viewport fv))
-  (define-values (fv2 _) (update fv (char-key #\j)))
+  (define-values (fv2 _) (extract-update-result (update fv (char-key #\j))))
   ;; Original is unchanged
   (check-equal? (file-viewer-viewport fv) vp-before))

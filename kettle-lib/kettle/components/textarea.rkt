@@ -44,7 +44,7 @@
   #:transparent
   #:methods gen:tea-model
   [(define (init ta)
-     (values ta #f))
+     ta)
    (define (update ta msg)
      (textarea-update ta msg))
    (define (view ta)
@@ -364,29 +364,29 @@
 
 (define (textarea-update ta msg)
   (if (not (textarea-focused? ta))
-      (values ta #f)
+      ta
       (cond
         [(key-msg? msg)
          (define key (key-msg-key msg))
          (define ctrl? (key-msg-ctrl msg))
          (cond
-           [(eq? key 'up) (values (ta-cursor-up ta) #f)]
-           [(eq? key 'down) (values (ta-cursor-down ta) #f)]
-           [(eq? key 'left) (values (ta-cursor-left ta) #f)]
-           [(eq? key 'right) (values (ta-cursor-right ta) #f)]
+           [(eq? key 'up) (ta-cursor-up ta)]
+           [(eq? key 'down) (ta-cursor-down ta)]
+           [(eq? key 'left) (ta-cursor-left ta)]
+           [(eq? key 'right) (ta-cursor-right ta)]
            [(or (eq? key 'home) (and ctrl? (char? key) (char=? key #\a)))
-            (values (ta-cursor-start ta) #f)]
+            (ta-cursor-start ta)]
            [(or (eq? key 'end) (and ctrl? (char? key) (char=? key #\e)))
-            (values (ta-cursor-end ta) #f)]
-           [(eq? key 'backspace) (values (ta-delete-char-backward ta) #f)]
-           [(eq? key 'delete) (values (ta-delete-char-forward ta) #f)]
+            (ta-cursor-end ta)]
+           [(eq? key 'backspace) (ta-delete-char-backward ta)]
+           [(eq? key 'delete) (ta-delete-char-forward ta)]
            [(or (eq? key 'enter) (and ctrl? (char? key) (char=? key #\m)))
-            (values (ta-newline ta) #f)]
-           [(and ctrl? (char? key) (char=? key #\k)) (values (ta-kill-to-end ta) #f)]
-           [(and ctrl? (char? key) (char=? key #\u)) (values (ta-kill-to-start ta) #f)]
-           [(and (char? key) (char-graphic? key)) (values (textarea-insert-char ta key) #f)]
-           [else (values ta #f)])]
-        [else (values ta #f)])))
+            (ta-newline ta)]
+           [(and ctrl? (char? key) (char=? key #\k)) (ta-kill-to-end ta)]
+           [(and ctrl? (char? key) (char=? key #\u)) (ta-kill-to-start ta)]
+           [(and (char? key) (char-graphic? key)) (textarea-insert-char ta key)]
+           [else ta])]
+        [else ta])))
 
 (define (textarea-view ta)
   (define lines (textarea-lines ta))

@@ -75,7 +75,7 @@
 (define scroll-100k-ms
   (bench "Scroll down + view"
          (lambda ()
-           (define-values (lv2 _) (update lv-100k (key-msg #\j #f #f)))
+           (define-values (lv2 _) (extract-update-result (update lv-100k (key-msg #\j #f #f))))
            (view lv2))))
 
 ;; 3. Scroll + render at 1M lines
@@ -84,7 +84,7 @@
 (define scroll-1m-ms
   (bench "Scroll down + view"
          (lambda ()
-           (define-values (lv2 _) (update lv-1m (key-msg #\j #f #f)))
+           (define-values (lv2 _) (extract-update-result (update lv-1m (key-msg #\j #f #f))))
            (view lv2))))
 
 ;; 4. Page-down at 1M lines (200x60)
@@ -93,7 +93,7 @@
 (define page-1m-ms
   (bench "Page down + view"
          (lambda ()
-           (define-values (lv2 _) (update lv-1m-large (key-msg #\space #f #f)))
+           (define-values (lv2 _) (extract-update-result (update lv-1m-large (key-msg #\space #f #f))))
            (view lv2))))
 
 ;; 5. Jump-to-bottom at 1M lines
@@ -102,7 +102,7 @@
 (define jump-1m-ms
   (bench "Jump to bottom (G) + view"
          (lambda ()
-           (define-values (lv2 _) (update lv-1m (key-msg #\G #f #f)))
+           (define-values (lv2 _) (extract-update-result (update lv-1m (key-msg #\G #f #f))))
            (view lv2))))
 
 ;; Assertions

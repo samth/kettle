@@ -39,18 +39,18 @@
   #:transparent
   #:methods gen:tea-model
   [(define (init pg)
-     (values pg #f))
+     pg)
    (define (update pg msg)
      (cond
        [(key-msg? msg)
         (define key (key-msg-key msg))
         (cond
           [(or (eq? key 'right) (eq? key 'page-down) (and (char? key) (char=? key #\l)))
-           (values (paginator-next-page pg) #f)]
+           (paginator-next-page pg)]
           [(or (eq? key 'left) (eq? key 'page-up) (and (char? key) (char=? key #\h)))
-           (values (paginator-prev-page pg) #f)]
-          [else (values pg #f)])]
-       [else (values pg #f)]))
+           (paginator-prev-page pg)]
+          [else pg])]
+       [else pg]))
    (define (view pg)
      (case (paginator-type pg)
        [(dots)

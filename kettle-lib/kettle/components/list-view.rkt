@@ -25,17 +25,17 @@
   #:transparent
   #:methods gen:tea-model
   [(define (init lv)
-     (values lv #f))
+     lv)
    (define (update lv msg)
      (if (key-msg? msg)
          (let ([key (key-msg-key msg)])
            (cond
              [(or (eq? key 'up) (and (char? key) (char=? key #\k)))
-              (values (list-view-move-up lv) #f)]
+              (list-view-move-up lv)]
              [(or (eq? key 'down) (and (char? key) (char=? key #\j)))
-              (values (list-view-move-down lv) #f)]
-             [else (values lv #f)]))
-         (values lv #f)))
+              (list-view-move-down lv)]
+             [else lv]))
+         lv))
    (define (view lv)
      (define items (list-view-items lv))
      (define sel (list-view-selected lv))

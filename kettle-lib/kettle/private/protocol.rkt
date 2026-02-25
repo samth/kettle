@@ -43,6 +43,10 @@
          ;; Legacy mouse message
          (struct-out mouse-msg)
 
+         ;; Update result wrapper
+         (struct-out cmd)
+         extract-update-result
+
          ;; Command utilities
          quit-cmd
          batch
@@ -56,19 +60,30 @@
          ;; Component composition
          delegate)
 
+;;; Update result wrapper
+;; Return (cmd model value) from update/init when a command is needed.
+;; Return a bare model (no wrapper) when there is no command.
+(struct cmd (model value) #:transparent)
+
+;; Extract model and command from an update/init return value.
+(define (extract-update-result v)
+  (if (cmd? v)
+      (values (cmd-model v) (cmd-value v))
+      (values v #f)))
+
 ;;; TEA Model generic interface
 (define-generics tea-model
-  ;; Initialize the model. Returns (values model cmd-or-#f).
+  ;; Initialize the model. Returns model or (cmd model command).
   (init tea-model)
-  ;; Handle a message. Returns (values new-model cmd-or-#f).
+  ;; Handle a message. Returns new-model or (cmd new-model command).
   (update tea-model msg)
   ;; Render the model to an image (or string for legacy).
   (view tea-model)
   ;; Return a list of subscription specs. Evaluated after each update.
   (subscriptions tea-model)
   #:defaults
-  ([init (lambda (m) (values m #f))]
-   [update (lambda (m msg) (values m #f))]
+  ([init (lambda (m) m)]
+   [update (lambda (m msg) m)]
    [view (lambda (m) "")]
    [subscriptions (lambda (m) '())]))
 
@@ -128,5 +143,7 @@
 
 ;;; Component composition helper
 (define (delegate parent getter setter msg)
-  (define-values (new-child child-cmd) (update (getter parent) msg))
-  (values (setter parent new-child) child-cmd))
+  (define result (update (getter parent) msg))
+  (if (cmd? result)
+      (cmd (setter parent (cmd-model result)) (cmd-value result))
+      (setter parent result)))

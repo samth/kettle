@@ -39,12 +39,12 @@ The same program in Kettle:
              (define key (key-msg-key km))
              (cond
                [(and (char? key) (char=? key #\+))
-                (values (add1 count) #f)]
+                (add1 count)]
                [(and (char? key) (char=? key #\-))
-                (values (sub1 count) #f)]
+                (sub1 count)]
                [(and (char? key) (char=? key #\q))
-                (values count (quit-cmd))]
-               [else (values count #f)]))
+                (cmd count (quit-cmd))]
+               [else count]))
   #:to-view (lambda (count)
               (text (format "Count: ~a" count)))
   #:alt-screen #t)
@@ -75,8 +75,8 @@ The same program in Kettle:
                      "subscriptions"
                      "More advanced; see below")
                (list "Handler returns state"
-                     @racket[(values state cmd)]
-                     "Always two values")
+                     @elem{state or @racket[(cmd state command)]}
+                     "Bare value or cmd wrapper")
                (list "Closes window to quit"
                      @racket[(quit-cmd)]
                      "Must quit explicitly")
@@ -87,7 +87,7 @@ The same program in Kettle:
                      @racketmodname[kettle/image]
                      "Text-based, not pixel-based"))]
 
-@section{Handlers return two values}
+@section{Handlers return a model or a cmd wrapper}
 
 In @racket[big-bang], an event handler returns the new state:
 
@@ -97,24 +97,24 @@ In @racket[big-bang], an event handler returns the new state:
           (add1 state))]
 ]
 
-In Kettle, every handler returns @bold{two values}: the new state and a
-command (or @racket[#f] for no command):
+In Kettle, a handler returns either the new state directly (when no
+command is needed) or wraps it with @racket[cmd] to attach a command:
 
 @racketblock[
-(code:comment "Kettle")
+(code:comment "Kettle -- no command, return state directly")
 #:on-key (lambda (state km)
-           (values (add1 state) #f))
+           (add1 state))
 ]
 
-The command slot is how you tell the runtime to do things. The most
-common command is @racket[(quit-cmd)], which tells the program to exit:
+The @racket[cmd] wrapper is how you tell the runtime to do things. The
+most common command is @racket[(quit-cmd)], which tells the program to
+exit:
 
 @racketblock[
-(values state (quit-cmd))
+(cmd state (quit-cmd))
 ]
 
-If you forget the second value, you'll get a contract error. When in
-doubt, return @racket[#f].
+When no command is needed, return the new state directly.
 
 @section{Key events are structs, not strings}
 
@@ -231,7 +231,7 @@ terminal until you explicitly quit. You almost always need a quit key:
 
 @racketblock[
 [(and (char? key) (char=? key #\q))
- (values state (quit-cmd))]
+ (cmd state (quit-cmd))]
 ]
 
 @racket[#:stop-when] also works and is checked after each update, same
@@ -239,7 +239,7 @@ as @racket[big-bang]:
 
 @racketblock[
 (run 0
-  #:on-key (lambda (n km) (values (add1 n) #f))
+  #:on-key (lambda (n km) (add1 n))
   #:stop-when (lambda (n) (> n 10))
   #:to-view (lambda (n) (text (format "~a" n))))
 ]
@@ -275,12 +275,12 @@ Kettle version:
   (lambda (self msg)
     (cond
       [(tick-msg? msg)
-       (values (struct-copy ticker self
-                 [count (add1 (ticker-count self))])
-               (if (> (ticker-count self) 10)
-                   (quit-cmd)
-                   #f))]
-      [else (values self #f)]))
+       (define new-self (struct-copy ticker self
+                          [count (add1 (ticker-count self))]))
+       (if (> (ticker-count self) 10)
+           (cmd new-self (quit-cmd))
+           new-self)]
+      [else self]))
   #:view
   (lambda (self)
     (text (number->string (ticker-count self)))))
@@ -309,7 +309,7 @@ protocol:
     (code:comment "self is a my-app struct")
     (code:comment "(my-app-name self), (my-app-count self) are field accessors")
     (code:comment "(struct-copy my-app self [count 5]) creates an updated copy")
-    (values self #f))
+    self)
   #:view
   (lambda (self)
     (text (format "Hello ~a: ~a" (my-app-name self) (my-app-count self)))))
@@ -342,7 +342,7 @@ components:
 (struct my-app (child-component some-data)
   #:transparent
   #:methods gen:tea-model
-  [(define (init self) (values self #f))
+  [(define (init self) self)
    (define (update self msg) (my-update self msg))
    (define (view self) (my-view self))])
 ]
@@ -393,9 +393,9 @@ them without a terminal by constructing messages directly:
 (define (char-key ch) (key-msg ch #f #f))
 
 (code:comment "Test an update handler")
-(define-values (new-state cmd) (update my-model (char-key #\+)))
+(define-values (new-state c) (extract-update-result (update my-model (char-key #\+))))
 (check-equal? new-state expected-state)
-(check-false cmd)
+(check-false c)
 
 (code:comment "Test a view function")
 (check-pred image? (view my-model))
@@ -442,19 +442,17 @@ The same program in Kettle:
   (define key (key-msg-key km))
   (cond
     [(and (char? key) (char=? key #\q) (key-msg-ctrl km))
-     (values ed (quit-cmd))]
+     (cmd ed (quit-cmd))]
     [(and (char? key) (char-graphic? key))
-     (values (editor (string-append (editor-text ed) (string key))
-                     (add1 (editor-cursor ed)))
-             #f)]
+     (editor (string-append (editor-text ed) (string key))
+             (add1 (editor-cursor ed)))]
     [(eq? key 'backspace)
      (if (> (string-length (editor-text ed)) 0)
-         (values (editor (substring (editor-text ed) 0
-                           (sub1 (string-length (editor-text ed))))
-                         (max 0 (sub1 (editor-cursor ed))))
-                 #f)
-         (values ed #f))]
-    [else (values ed #f)]))
+         (editor (substring (editor-text ed) 0
+                   (sub1 (string-length (editor-text ed))))
+                 (max 0 (sub1 (editor-cursor ed))))
+         ed)]
+    [else ed]))
 
 (define (render ed)
   (vcat 'left
@@ -470,7 +468,7 @@ The same program in Kettle:
 
 The structure is nearly identical. The main changes are:
 @itemlist[#:style 'ordered
-  @item{@racket[(values new-state #f)] instead of just @racket[new-state]}
+  @item{Return the new state directly, or @racket[(cmd state command)] to attach a command}
   @item{@racket[key-msg] struct instead of a key-event string}
   @item{@racket[(text str)] instead of @racket[(text str size color)]}
   @item{An explicit quit key, since there is no window close button}

@@ -53,19 +53,19 @@
   #:transparent
   #:methods gen:tea-model
   [(define (init s)
-     (values s
-             (lambda ()
-               (sleep (spinner-fps s))
-               (spinner-tick-msg (spinner-id s)))))
+     (cmd s
+          (lambda ()
+            (sleep (spinner-fps s))
+            (spinner-tick-msg (spinner-id s)))))
    (define (update s msg)
      (cond
        [(and (spinner-tick-msg? msg) (= (spinner-tick-msg-id msg) (spinner-id s)))
         (define new-index (modulo (add1 (spinner-frame-index s)) (length (spinner-frames s))))
-        (values (struct-copy spinner s [frame-index new-index])
-                (lambda ()
-                  (sleep (spinner-fps s))
-                  (spinner-tick-msg (spinner-id s))))]
-       [else (values s #f)]))
+        (cmd (struct-copy spinner s [frame-index new-index])
+             (lambda ()
+               (sleep (spinner-fps s))
+               (spinner-tick-msg (spinner-id s))))]
+       [else s]))
    (define (view s)
      (define frames (spinner-frames s))
      (define index (spinner-frame-index s))

@@ -163,7 +163,7 @@
 
        ;; Run initial command
        (define init-cmd
-         (let-values ([(m cmd) (init (program-model p))])
+         (let-values ([(m cmd) (extract-update-result (init (program-model p)))])
            (set-program-model! p m)
            cmd))
        (when init-cmd
@@ -292,7 +292,7 @@
         ;; All other messages
         [else
          (define-values (new-model cmd)
-           (update (program-model p) m))
+           (extract-update-result (update (program-model p) m)))
          (set-program-model! p new-model)
          (set! should-render #t)
          (when cmd
@@ -481,8 +481,8 @@
        (with-syntax ([(fname ...) field-names]
                      [(fdefault ...) field-defaults]
                      [make-name (format-id #'name "make-~a" #'name)]
-                     [init-expr (or init-stx #'(lambda (self) (values self #f)))]
-                     [update-expr (or update-stx #'(lambda (self msg) (values self #f)))]
+                     [init-expr (or init-stx #'(lambda (self) self))]
+                     [update-expr (or update-stx #'(lambda (self msg) self))]
                      [view-expr view-stx]
                      [subs-expr (or subs-stx #'(lambda (self) '()))])
          #'(begin

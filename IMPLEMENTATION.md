@@ -34,13 +34,19 @@ The core generic interface:
 
 ```racket
 (define-generics tea-model
-  (init tea-model)           ; -> (values model cmd-or-#f)
-  (update tea-model msg)     ; -> (values new-model cmd-or-#f)
+  (init tea-model)           ; -> model or (cmd model command)
+  (update tea-model msg)     ; -> new-model or (cmd new-model command)
   (view tea-model)           ; -> image
   (subscriptions tea-model)) ; -> list of subscription specs
 ```
 
 All four methods have defaults (identity init, no-op update, empty string view, empty subscriptions).
+
+`init` and `update` return either a bare model (no command) or a `(cmd model command)` wrapper when a command should be executed. The `cmd` struct is transparent with two fields: `model` and `value`. Use `extract-update-result` to destructure the return value into two values:
+
+```racket
+(define-values (m c) (extract-update-result (update model msg)))
+```
 
 ### Messages
 
@@ -55,8 +61,8 @@ All messages inherit from `(struct msg () #:transparent)`:
 
 ### Commands
 
-Commands returned from `update` or `init`:
-- `#f` -- no-op
+Commands are the `value` field of a `cmd` wrapper (or absent when a bare model is returned):
+- `#f` -- no-op (equivalent to returning a bare model)
 - Procedure -- run in a thread, send return value as message (e.g. `quit-cmd` returns a thunk that produces `quit-msg`)
 - List -- batch of commands, run concurrently
 - `(cons 'sequence ...)` -- run thunks sequentially in one thread
@@ -68,8 +74,10 @@ Commands returned from `update` or `init`:
 
 ```racket
 (define (delegate parent getter setter msg)
-  (define-values (new-child child-cmd) (update (getter parent) msg))
-  (values (setter parent new-child) child-cmd))
+  (define result (update (getter parent) msg))
+  (if (cmd? result)
+      (cmd (setter parent (cmd-model result)) (cmd-value result))
+      (setter parent result)))
 ```
 
 ## Image Type System (`image.rkt`)

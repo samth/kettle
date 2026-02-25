@@ -23,9 +23,9 @@
   #:transparent
   #:methods gen:tea-model
   [(define (init pb)
-     (values pb #f))
+     pb)
    (define (update pb msg)
-     (values pb #f))
+     pb)
    (define (view pb)
      (define pct (max 0.0 (min 1.0 (progress-percent pb))))
      (define w (progress-width pb))

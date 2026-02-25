@@ -43,7 +43,7 @@
   #:transparent
   #:methods gen:tea-model
   [(define (init input)
-     (values input #f))
+     input)
    (define (update input msg)
      (textinput-update input msg))
    (define (view input)
@@ -142,7 +142,7 @@
 (define (textinput-update input msg)
   (cond
     ;; Custom keymap
-    [(and (textinput-keymap input) ((textinput-keymap input) input msg)) (values input #f)]
+    [(and (textinput-keymap input) ((textinput-keymap input) input msg)) input]
 
     ;; Paste message
     [(paste-msg? msg)
@@ -157,7 +157,7 @@
            new-val))
      (define new-pos (min (string-length trimmed) (+ pos (string-length text-str))))
      (define input2 (ti-apply-change input trimmed new-pos))
-     (values (ti-adjust-offset input2) #f)]
+     (ti-adjust-offset input2)]
 
     ;; Key messages
     [(and (key-msg? msg) (textinput-focused? input))
@@ -175,8 +175,8 @@
                                             (string-append (substring value 0 (sub1 pos))
                                                            (substring value pos))
                                             (sub1 pos))])
-              (values (ti-adjust-offset input2) #f))
-            (values input #f))]
+              (ti-adjust-offset input2))
+            input)]
 
        ;; Alt+Backspace (delete word backward)
        [(and (eq? key 'backspace) alt?)
@@ -186,8 +186,8 @@
                                             (string-append (substring value 0 b)
                                                            (substring value pos))
                                             b)])
-              (values (ti-adjust-offset input2) #f))
-            (values input #f))]
+              (ti-adjust-offset input2))
+            input)]
 
        ;; Delete
        [(and (eq? key 'delete) (not alt?))
@@ -196,52 +196,49 @@
                                            (string-append (substring value 0 pos)
                                                           (substring value (add1 pos)))
                                            pos)])
-              (values (ti-adjust-offset input2) #f))
-            (values input #f))]
+              (ti-adjust-offset input2))
+            input)]
 
        ;; Alt+d (delete word forward)
        [(and alt? (char? key) (char=? key #\d))
         (define f (ti-next-word-boundary value pos))
         (if f
-            (values
-             (ti-apply-change input (string-append (substring value 0 pos) (substring value f)) pos)
-             #f)
-            (values input #f))]
+            (ti-apply-change input (string-append (substring value 0 pos) (substring value f)) pos)
+            input)]
 
        ;; Left arrow or Ctrl+b
        [(or (eq? key 'left) (and ctrl? (char? key) (char=? key #\b)))
         (if (> pos 0)
-            (values (ti-adjust-offset (struct-copy textinput input [cursor-pos (sub1 pos)])) #f)
-            (values input #f))]
+            (ti-adjust-offset (struct-copy textinput input [cursor-pos (sub1 pos)]))
+            input)]
 
        ;; Right arrow or Ctrl+f
        [(or (eq? key 'right) (and ctrl? (char? key) (char=? key #\f)))
         (if (< pos (string-length value))
-            (values (ti-adjust-offset (struct-copy textinput input [cursor-pos (add1 pos)])) #f)
-            (values input #f))]
+            (ti-adjust-offset (struct-copy textinput input [cursor-pos (add1 pos)]))
+            input)]
 
        ;; Home or Ctrl+a
        [(or (eq? key 'home) (and ctrl? (char? key) (char=? key #\a)))
-        (values (ti-adjust-offset (struct-copy textinput input [cursor-pos 0])) #f)]
+        (ti-adjust-offset (struct-copy textinput input [cursor-pos 0]))]
 
        ;; End or Ctrl+e
        [(or (eq? key 'end) (and ctrl? (char? key) (char=? key #\e)))
-        (values (ti-adjust-offset (struct-copy textinput input [cursor-pos (string-length value)]))
-                #f)]
+        (ti-adjust-offset (struct-copy textinput input [cursor-pos (string-length value)]))]
 
        ;; Ctrl+k (kill to end)
        [(and ctrl? (char? key) (char=? key #\k))
         (define killed (substring value pos))
         (define input2
           (struct-copy textinput input [kill-ring (cons killed (textinput-kill-ring input))]))
-        (values (ti-apply-change input2 (substring value 0 pos) pos) #f)]
+        (ti-apply-change input2 (substring value 0 pos) pos)]
 
        ;; Ctrl+u (kill to start)
        [(and ctrl? (char? key) (char=? key #\u))
         (define killed (substring value 0 pos))
         (define input2
           (struct-copy textinput input [kill-ring (cons killed (textinput-kill-ring input))]))
-        (values (ti-adjust-offset (ti-apply-change input2 (substring value pos) 0)) #f)]
+        (ti-adjust-offset (ti-apply-change input2 (substring value pos) 0))]
 
        ;; Ctrl+w (kill word backward)
        [(and ctrl? (char? key) (char=? key #\w))
@@ -255,77 +252,73 @@
                                             (string-append (substring value 0 b)
                                                            (substring value pos))
                                             b)])
-              (values (ti-adjust-offset input3) #f))
-            (values input #f))]
+              (ti-adjust-offset input3))
+            input)]
 
        ;; Alt+b (move word left)
        [(and alt? (char? key) (char=? key #\b))
         (define b (ti-prev-word-boundary value pos))
         (if b
-            (values (ti-adjust-offset (struct-copy textinput input [cursor-pos b])) #f)
-            (values input #f))]
+            (ti-adjust-offset (struct-copy textinput input [cursor-pos b]))
+            input)]
 
        ;; Alt+f (move word right)
        [(and alt? (char? key) (char=? key #\f))
         (define f (ti-next-word-boundary value pos))
         (if f
-            (values (ti-adjust-offset (struct-copy textinput input [cursor-pos f])) #f)
-            (values input #f))]
+            (ti-adjust-offset (struct-copy textinput input [cursor-pos f]))
+            input)]
 
        ;; Ctrl+d (delete at cursor)
        [(and ctrl? (char? key) (char=? key #\d))
         (if (< pos (string-length value))
-            (values (ti-apply-change input
-                                     (string-append (substring value 0 pos)
-                                                    (substring value (add1 pos)))
-                                     pos)
-                    #f)
-            (values input #f))]
+            (ti-apply-change input
+                             (string-append (substring value 0 pos)
+                                            (substring value (add1 pos)))
+                             pos)
+            input)]
 
        ;; Ctrl+y (yank)
        [(and ctrl? (char? key) (char=? key #\y))
         (define txt
           (and (not (null? (textinput-kill-ring input))) (first (textinput-kill-ring input))))
         (if txt
-            (values (ti-apply-change input
-                                     (string-append (substring value 0 pos) txt (substring value pos))
-                                     (+ pos (string-length txt)))
-                    #f)
-            (values input #f))]
+            (ti-apply-change input
+                             (string-append (substring value 0 pos) txt (substring value pos))
+                             (+ pos (string-length txt)))
+            input)]
 
        ;; Ctrl+z (undo)
        [(and ctrl? (char? key) (char=? key #\z))
         (define snap
           (and (not (null? (textinput-undo-stack input))) (first (textinput-undo-stack input))))
         (if snap
-            (values (ti-adjust-offset (struct-copy textinput
-                                                   input
-                                                   [undo-stack (rest (textinput-undo-stack input))]
-                                                   [redo-stack
-                                                    (cons (cons (textinput-value input)
-                                                                (textinput-cursor-pos input))
-                                                          (textinput-redo-stack input))]
-                                                   [value (car snap)]
-                                                   [cursor-pos (cdr snap)]))
-                    #f)
-            (values input #f))]
+            (ti-adjust-offset (struct-copy textinput
+                                           input
+                                           [undo-stack (rest (textinput-undo-stack input))]
+                                           [redo-stack
+                                            (cons (cons (textinput-value input)
+                                                        (textinput-cursor-pos input))
+                                                  (textinput-redo-stack input))]
+                                           [value (car snap)]
+                                           [cursor-pos (cdr snap)]))
+            input)]
 
        ;; Alt+z (redo)
        [(and alt? (char? key) (char=? key #\z))
         (define snap
           (and (not (null? (textinput-redo-stack input))) (first (textinput-redo-stack input))))
         (if snap
-            (values (ti-adjust-offset (struct-copy textinput
-                                                   input
-                                                   [redo-stack (rest (textinput-redo-stack input))]
-                                                   [undo-stack
-                                                    (cons (cons (textinput-value input)
-                                                                (textinput-cursor-pos input))
-                                                          (textinput-undo-stack input))]
-                                                   [value (car snap)]
-                                                   [cursor-pos (cdr snap)]))
-                    #f)
-            (values input #f))]
+            (ti-adjust-offset (struct-copy textinput
+                                           input
+                                           [redo-stack (rest (textinput-redo-stack input))]
+                                           [undo-stack
+                                            (cons (cons (textinput-value input)
+                                                        (textinput-cursor-pos input))
+                                                  (textinput-undo-stack input))]
+                                           [value (car snap)]
+                                           [cursor-pos (cdr snap)]))
+            input)]
 
        ;; Regular character input
        [(and (char? key) (char-graphic? key))
@@ -336,12 +329,12 @@
                            input
                            (string-append (substring value 0 pos) (string key) (substring value pos))
                            (add1 pos))])
-              (values (ti-adjust-offset input2) #f))
-            (values input #f))]
+              (ti-adjust-offset input2))
+            input)]
 
-       [else (values input #f)])]
+       [else input])]
 
-    [else (values input #f)]))
+    [else input]))
 
 (define (textinput-view input)
   (define value (textinput-value input))

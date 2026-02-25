@@ -32,7 +32,7 @@
   #:transparent
   #:methods gen:tea-model
   [(define (init lv)
-     (values lv #f))
+     lv)
    (define (update lv msg)
      (log-viewer-update lv msg))
    (define (view lv)
@@ -88,50 +88,42 @@
      (define key (key-msg-key msg))
      (cond
        ;; Quit
-       [(and (char? key) (char=? key #\q)) (values lv (quit-cmd))]
+       [(and (char? key) (char=? key #\q)) (cmd lv (quit-cmd))]
 
        ;; Down / j
        [(or (eq? key 'down) (and (char? key) (char=? key #\j)))
-        (values (struct-copy log-viewer lv [y-offset (clamp-y lv (add1 (log-viewer-y-offset lv)))])
-                #f)]
+        (struct-copy log-viewer lv [y-offset (clamp-y lv (add1 (log-viewer-y-offset lv)))])]
 
        ;; Up / k
        [(or (eq? key 'up) (and (char? key) (char=? key #\k)))
-        (values (struct-copy log-viewer lv [y-offset (clamp-y lv (sub1 (log-viewer-y-offset lv)))])
-                #f)]
+        (struct-copy log-viewer lv [y-offset (clamp-y lv (sub1 (log-viewer-y-offset lv)))])]
 
        ;; Page down / space
        [(or (and (char? key) (char=? key #\space)) (eq? key 'page-down))
         (define page-h (- (log-viewer-height lv) 2))
-        (values
-         (struct-copy log-viewer lv [y-offset (clamp-y lv (+ (log-viewer-y-offset lv) page-h))])
-         #f)]
+        (struct-copy log-viewer lv [y-offset (clamp-y lv (+ (log-viewer-y-offset lv) page-h))])]
 
        ;; Page up / b
        [(or (and (char? key) (char=? key #\b)) (eq? key 'page-up))
         (define page-h (- (log-viewer-height lv) 2))
-        (values
-         (struct-copy log-viewer lv [y-offset (clamp-y lv (- (log-viewer-y-offset lv) page-h))])
-         #f)]
+        (struct-copy log-viewer lv [y-offset (clamp-y lv (- (log-viewer-y-offset lv) page-h))])]
 
        ;; Top / g
-       [(and (char? key) (char=? key #\g)) (values (struct-copy log-viewer lv [y-offset 0]) #f)]
+       [(and (char? key) (char=? key #\g)) (struct-copy log-viewer lv [y-offset 0])]
 
        ;; Bottom / G
        [(and (char? key) (char=? key #\G))
-        (values (struct-copy log-viewer lv [y-offset (max-y-offset lv)]) #f)]
+        (struct-copy log-viewer lv [y-offset (max-y-offset lv)])]
 
        ;; Left / h
        [(or (eq? key 'left) (and (char? key) (char=? key #\h)))
-        (values (struct-copy log-viewer lv [x-offset (clamp-x lv (- (log-viewer-x-offset lv) 4))])
-                #f)]
+        (struct-copy log-viewer lv [x-offset (clamp-x lv (- (log-viewer-x-offset lv) 4))])]
 
        ;; Right / l
        [(or (eq? key 'right) (and (char? key) (char=? key #\l)))
-        (values (struct-copy log-viewer lv [x-offset (clamp-x lv (+ (log-viewer-x-offset lv) 4))])
-                #f)]
+        (struct-copy log-viewer lv [x-offset (clamp-x lv (+ (log-viewer-x-offset lv) 4))])]
 
-       [else (values lv #f)])]
+       [else lv])]
 
     ;; Window resize
     [(window-size-msg? msg)
@@ -139,13 +131,12 @@
      (define h (window-size-msg-height msg))
      (define new-lv (struct-copy log-viewer lv [width w] [height h]))
      ;; Re-clamp offsets for new size
-     (values (struct-copy log-viewer
-                          new-lv
-                          [y-offset (clamp-y new-lv (log-viewer-y-offset new-lv))]
-                          [x-offset (clamp-x new-lv (log-viewer-x-offset new-lv))])
-             #f)]
+     (struct-copy log-viewer
+                  new-lv
+                  [y-offset (clamp-y new-lv (log-viewer-y-offset new-lv))]
+                  [x-offset (clamp-x new-lv (log-viewer-x-offset new-lv))])]
 
-    [else (values lv #f)]))
+    [else lv]))
 
 ;;; View -- O(viewport-height)
 
