@@ -99,7 +99,7 @@
 (define (program-show-fps! p show?)
   (set-program-show-fps?! p (and show? #t)))
 
-;; Overlay an FPS counter in the top-right corner of an image.
+;; Overlay an FPS counter in the bottom-right corner of the terminal.
 ;; Uses exponential moving average for smooth display.
 (define fps-label-style (make-style #:foreground "33" #:background "40" #:bold #t))
 (define (overlay-fps img p)
@@ -117,11 +117,15 @@
       (set-program-fps-value! p new-fps)))
   (define fps-str (format " ~a fps " (~r (program-fps-value p) #:precision '(= 0))))
   (define label (styled fps-label-style (text fps-str)))
-  (define w (image-w img))
+  ;; Use terminal size so the label stays pinned regardless of image size
+  (define size (get-terminal-size))
+  (define tw (car size))
+  (define th (cdr size))
   (define label-w (image-w label))
-  ;; Place label at top-right using zcat + pad
-  (if (> w label-w)
-      (zcat (pad label #:left (- w label-w)) img)
+  (define label-h (image-h label))
+  ;; Place label at bottom-right using zcat + pad
+  (if (and (> tw label-w) (> th label-h))
+      (zcat (pad label #:left (- tw label-w) #:top (- th label-h)) img)
       img))
 
 (define (opts-ref opts key [default #f])
