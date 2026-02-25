@@ -11,7 +11,9 @@
 (require racket/port
          racket/string
          racket/format
-         rackunit)
+         rackunit
+         (for-syntax racket/base
+                     syntax/parse))
 
 ;; Session management
 (provide tmux-start
@@ -31,6 +33,12 @@
          ;; Rackunit checks
          check-tmux-contains
          check-tmux-matches
+         check-tmux-not-contains
+
+         ;; DSL helpers
+         send+wait
+         check-quit-exits
+         with-e2e-sessions
 
          ;; Predicate
          tmux-available?
@@ -223,3 +231,48 @@
   (unless (regexp-match? rx captured)
     (with-check-info (['pattern (format "~a" pattern)] ['captured-pane captured])
                      (fail-check (format "Pane does not match pattern ~s" pattern)))))
+
+(define-check (check-tmux-not-contains session text)
+  (define captured (tmux-capture session #:trim #t))
+  (when (regexp-match? (regexp-quote text) captured)
+    (with-check-info (['unexpected text] ['captured-pane captured])
+                     (fail-check (format "Pane should not contain ~s" text)))))
+
+;;; ============================================================
+;;; DSL helpers for concise e2e tests
+;;; ============================================================
+
+;; Send a key and wait for expected text to appear.
+(define (send+wait session key expected #:timeout [timeout 5])
+  (tmux-send-keys session key)
+  (tmux-wait-for session expected #:timeout timeout))
+
+;; Check that sending a quit key causes the program to exit.
+;; marker is text that should disappear when the TUI is no longer running.
+(define-check (check-quit-exits session quit-key marker)
+  (tmux-send-keys session quit-key)
+  (sleep 0.3)
+  (define captured (tmux-capture session #:trim #t))
+  (when (regexp-match? (regexp-quote marker) captured)
+    (with-check-info (['quit-key quit-key] ['marker marker] ['captured-pane captured])
+                     (fail-check (format "TUI should no longer be visible after ~s, still contains ~s"
+                                         quit-key marker)))))
+
+;; Start multiple tmux sessions in parallel and call body with them.
+;; Automatically kills all sessions on exit.
+;; Each spec is (id module-path keyword-arg ...)
+(define-syntax (with-e2e-sessions stx)
+  (syntax-parse stx
+    [(_ ([id:id path:expr . kw-args] ...) body:expr ...+)
+     #:with (id-box ...) (generate-temporaries #'(id ...))
+     #'(let ()
+         (define id-box (box #f)) ...
+         (define threads
+           (list (thread (lambda () (set-box! id-box (tmux-start path . kw-args)))) ...))
+         (for-each thread-wait threads)
+         (define id (unbox id-box)) ...
+         (dynamic-wind
+          void
+          (lambda () body ...)
+          (lambda ()
+            (with-handlers ([exn:fail? void]) (tmux-kill id)) ...)))]))

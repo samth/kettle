@@ -25,6 +25,12 @@
          ;; Rackunit checks
          check-tmux-contains
          check-tmux-matches
+         check-tmux-not-contains
+
+         ;; DSL helpers
+         send+wait
+         check-quit-exits
+         with-e2e-sessions
 
          ;; Predicate
          tmux-available?
