@@ -103,11 +103,17 @@ Background colors: @racket[bg-black], @racket[bg-red], @racket[bg-green],
 @defproc[(render-styled [s style?] [text string?]) string?]{
   Render @racket[text] with the given style applied.}
 
-@defproc[(bold [text string?]) string?]{Bold text.}
-@defproc[(italic [text string?]) string?]{Italic text.}
-@defproc[(underline [text string?]) string?]{Underlined text.}
+@defproc[(bold [content (or/c image? string?)]) image?]{
+  Wrap @racket[content] with bold styling. Strings are auto-coerced to images.}
+@defproc[(italic [content (or/c image? string?)]) image?]{
+  Wrap @racket[content] with italic styling. Strings are auto-coerced to images.}
+@defproc[(underline [content (or/c image? string?)]) image?]{
+  Wrap @racket[content] with underline styling. Strings are auto-coerced to images.}
 @defproc[(colored [text string?] [#:fg fg any/c #f] [#:bg bg any/c #f]) string?]{
-  Apply foreground and/or background color.}
+  Apply foreground and/or background color to a string.}
+@defproc[(ensure-image [x (or/c image? string?)]) image?]{
+  Coerce @racket[x] to an image: images pass through unchanged,
+  strings are converted via @racket[text].}
 
 @section{Text Reflow}
 

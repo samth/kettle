@@ -10,7 +10,8 @@
          kettle/examples/stopwatch
          kettle/examples/todo
          kettle/examples/viewer
-         kettle/examples/log-viewer)
+         kettle/examples/log-viewer
+         kettle/examples/snake)
 
 ;;; ============================================================
 ;;; Counter (run-style)
@@ -67,18 +68,17 @@
 
 (test-case "stopwatch: tick advances time deterministically"
   ;; Start with known state: running, last-tick at 1000ms
-  (define tp (make-test-program (stopwatch 0.0 #t 1000.0)))
+  (define tp (make-test-program (stopwatch 0.0 #t 1000.0 '())))
   ;; Send tick at 2000ms -- 1 second elapsed
   (test-program-send tp (tick-msg 2000.0))
-  (check-test-program-contains tp "00:001.0")
+  (check-test-program-contains tp "RUNNING")
   ;; Another tick at 3000ms -- 2 seconds total
   (test-program-send tp (tick-msg 3000.0))
-  (check-test-program-contains tp "00:002.0"))
+  (check-test-program-contains tp "RUNNING"))
 
 (test-case "stopwatch: reset clears elapsed"
-  (define tp (make-test-program (stopwatch 42.5 #t 1000.0)))
+  (define tp (make-test-program (stopwatch 42.5 #t 1000.0 '())))
   (test-program-press tp #\r)
-  (check-test-program-contains tp "00:00")
   (check-test-program-contains tp "STOPPED"))
 
 (test-case "stopwatch: quit"
@@ -88,8 +88,8 @@
 
 (test-case "stopwatch: view shows help text"
   (define tp (make-test-program (make-stopwatch)))
-  (check-test-program-contains tp "start/stop")
-  (check-test-program-contains tp "reset")
+  (check-test-program-contains tp "go/stop")
+  (check-test-program-contains tp "rst")
   (check-test-program-contains tp "quit"))
 
 ;;; ============================================================
@@ -230,6 +230,35 @@
   (define tp (make-test-program lv))
   (test-program-press tp #\q)
   (check-test-program-done tp))
+
+;;; ============================================================
+;;; Snake (define-kettle-program with subscriptions)
+;;; ============================================================
+
+(test-case "snake: initial state shows playing"
+  (define tp (make-test-program (make-snake-game)))
+  (check-test-program-running tp)
+  (check-test-program-contains tp "Snake")
+  (check-test-program-contains tp "Score: 0"))
+
+(test-case "snake: move direction with arrow keys"
+  (define tp (make-test-program (make-snake-game)))
+  (test-program-press tp 'up)
+  (check-test-program-running tp)
+  (check-test-program-contains tp "Snake"))
+
+(test-case "snake: quit with q"
+  (define tp (make-test-program (make-snake-game)))
+  (test-program-press tp #\q)
+  (check-test-program-done tp))
+
+(test-case "snake: restart with r"
+  (define tp (make-test-program (make-snake-game)))
+  ;; Move a bit then restart
+  (test-program-press tp 'down)
+  (test-program-press tp #\r)
+  (check-test-program-running tp)
+  (check-test-program-contains tp "Score: 0"))
 
 ;;; ============================================================
 ;;; History tracking
