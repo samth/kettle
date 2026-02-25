@@ -192,7 +192,7 @@
   (let loop ()
     (define captured (tmux-capture session #:trim #t))
     ;; Also check with newlines replaced by spaces, since tmux wraps long lines
-    (define captured-joined (string-replace captured "\n" " "))
+    (define captured-joined (string-replace captured "\n" ""))
     (cond
       [(or (regexp-match? rx captured)
            (regexp-match? rx captured-joined))
@@ -209,7 +209,7 @@
 (define-check (check-tmux-contains session expected-text)
   (define captured (tmux-capture session #:trim #t))
   ;; Also check with newlines replaced by spaces, since tmux wraps long lines
-  (define captured-joined (string-replace captured "\n" " "))
+  (define captured-joined (string-replace captured "\n" ""))
   (unless (or (regexp-match? (regexp-quote expected-text) captured)
               (regexp-match? (regexp-quote expected-text) captured-joined))
     (with-check-info (['expected expected-text] ['captured-pane captured])
