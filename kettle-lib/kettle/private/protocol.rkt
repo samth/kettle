@@ -23,6 +23,8 @@
          (struct-out msg)
          (struct-out quit-msg)
          (struct-out key-msg)
+         (struct-out key-event-msg)
+         (struct-out key-release-msg)
          (struct-out paste-msg)
          (struct-out window-size-msg)
          (struct-out tick-msg)
@@ -30,6 +32,13 @@
          (struct-out resume-msg)
          (struct-out focus-in-msg)
          (struct-out focus-out-msg)
+         (struct-out kitty-query-response-msg)
+
+         ;; Key event helpers
+         key-msg-event-type
+         key-press?
+         key-repeat?
+         key-release?
 
          ;; Mouse event hierarchy
          (struct-out mouse-event)
@@ -91,6 +100,43 @@
 (struct msg () #:transparent)
 (struct quit-msg msg () #:transparent)
 (struct key-msg msg (key alt ctrl) #:transparent)
+
+;; Extended key message with Kitty keyboard protocol fields.
+;; Subtype of key-msg: existing (key-msg? m) checks and
+;; (key-msg key alt ctrl) patterns match press/repeat events.
+(struct key-event-msg key-msg (shift event-type) #:transparent)
+;; event-type: 'press or 'repeat
+
+;; Key release event. NOT a subtype of key-msg, so existing code
+;; that matches on key-msg won't accidentally handle releases.
+(struct key-release-msg msg (key alt ctrl shift) #:transparent)
+
+;; Internal: Kitty keyboard protocol query response (ESC[?flags u).
+(struct kitty-query-response-msg msg (flags) #:transparent)
+
+;; Get the event type from a key message.
+;; Returns 'press, 'repeat, 'release, or #f (for plain key-msg).
+(define (key-msg-event-type km)
+  (cond
+    [(key-event-msg? km) (key-event-msg-event-type km)]
+    [(key-release-msg? km) 'release]
+    [else #f]))
+
+;; True if this is a key press (or a legacy key-msg, which is always press).
+(define (key-press? km)
+  (or (and (key-msg? km) (not (key-event-msg? km)))
+      (and (key-event-msg? km)
+           (let ([et (key-event-msg-event-type km)])
+             (or (eq? et 'press) (not et))))))
+
+;; True if this is a key repeat event.
+(define (key-repeat? km)
+  (and (key-event-msg? km) (eq? (key-event-msg-event-type km) 'repeat)))
+
+;; True if this is a key release event.
+(define (key-release? km)
+  (key-release-msg? km))
+
 (struct paste-msg msg (text) #:transparent)
 (struct window-size-msg msg (width height) #:transparent)
 (struct tick-msg msg (time) #:transparent)

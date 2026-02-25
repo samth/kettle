@@ -113,6 +113,10 @@
     [(char=? ch #\<)
      (parse-mouse-sequence port)]
 
+    ;; Kitty keyboard protocol query response: ESC [ ? flags u
+    [(char=? ch #\?)
+     (parse-kitty-query-response port)]
+
     ;; Focus events: ESC [ I (focus in), ESC [ O (focus out)
     [(char=? ch #\I)
      (focus-in-msg)]
@@ -141,12 +145,15 @@
      (key-msg 'unknown #f #f)]))
 
 (define (parse-csi-numeric first-digit port)
-  "Parse CSI sequence with numeric parameters."
-  (define params '())
+  "Parse CSI sequence with numeric parameters.
+   Handles semicolons as parameter separators and colons as sub-parameter
+   separators (used by Kitty keyboard protocol for event types)."
+  (define params '())       ;; list of numbers
+  (define separators '())   ;; list of separator chars (#\; or #\:) between params
   (define current-num (- (char->integer first-digit) (char->integer #\0)))
   (define term #f)
 
-  ;; Read digits, semicolons, until terminator
+  ;; Read digits, semicolons, colons, until terminator
   (let loop ()
     (define c (read-char-blocking port))
     (when c
@@ -154,8 +161,9 @@
         [(char-numeric? c)
          (set! current-num (+ (* current-num 10) (- (char->integer c) (char->integer #\0))))
          (loop)]
-        [(char=? c #\;)
+        [(or (char=? c #\;) (char=? c #\:))
          (set! params (append params (list current-num)))
+         (set! separators (append separators (list c)))
          (set! current-num 0)
          (loop)]
         [else
@@ -163,10 +171,14 @@
          (set! term c)])))
 
   (cond
+    ;; CSI u: Kitty keyboard protocol key event
+    [(and term (char=? term #\u))
+     (parse-csi-u-params params separators)]
+
     ;; Modified arrow keys: ESC[1;NA
     [(and term
           (memv term '(#\A #\B #\C #\D #\H #\F))
-          (= (length params) 2)
+          (>= (length params) 2)
           (= (first params) 1))
      (define modifier (second params))
      (define shift? (bitwise-bit-set? (sub1 modifier) 0))
@@ -305,6 +317,81 @@
         [(#\H) (key-msg 'home #f #f)]
         [else (key-msg 'unknown #f #f)])
       (key-msg 'unknown #f #f)))
+
+;;; Kitty keyboard protocol parsing
+
+;; Map Kitty protocol keycodes to Kettle key symbols/chars.
+(define (csi-u-keycode->key code)
+  (cond
+    [(and (>= code 32) (<= code 126)) (integer->char code)]
+    [(= code 27) 'escape]
+    [(= code 13) 'enter]
+    [(= code 9) 'tab]
+    [(= code 127) 'backspace]
+    [(= code 57358) 'backtab]
+    [(= code 57359) 'insert]
+    [(= code 57360) 'delete]
+    [(= code 57361) 'home]
+    [(= code 57362) 'end]
+    [(= code 57363) 'page-up]
+    [(= code 57364) 'page-down]
+    [(= code 57352) 'up]
+    [(= code 57353) 'down]
+    [(= code 57354) 'right]
+    [(= code 57355) 'left]
+    ;; Valid Unicode codepoint
+    [(and (> code 0) (<= code #x10FFFF)) (integer->char code)]
+    [else 'unknown]))
+
+;; Parse CSI u parameters into key-event-msg or key-release-msg.
+;; params: list of numbers from the numeric parser
+;; separators: list of separator chars (#\; or #\:) between params
+;; Format: ESC [ keycode ; modifiers : event_type u
+(define (parse-csi-u-params params separators)
+  (define keycode (if (pair? params) (first params) 0))
+  (define modifiers 1)  ;; default: no modifiers (value 1)
+  (define event-type-num #f)
+
+  ;; Extract modifiers and event type.
+  ;; Standard format: keycode ; modifiers : event_type
+  ;; params = (keycode modifiers event_type) with separators = (#\; #\:)
+  ;; Or: keycode ; modifiers with separators = (#\;) -- no event type
+  ;; Or: keycode alone -- no modifiers or event type
+  (when (> (length params) 1)
+    ;; Second param is modifiers (separated by ;)
+    (set! modifiers (second params))
+    ;; If there's a third param and the second separator is :, it's event type
+    (when (and (> (length params) 2)
+               (> (length separators) 1)
+               (char=? (second separators) #\:))
+      (set! event-type-num (third params))))
+
+  (define mod-bits (sub1 (max 1 modifiers)))
+  (define shift? (bitwise-bit-set? mod-bits 0))
+  (define alt?   (bitwise-bit-set? mod-bits 1))
+  (define ctrl?  (bitwise-bit-set? mod-bits 2))
+
+  (define key (csi-u-keycode->key keycode))
+
+  (case event-type-num
+    [(3) (key-release-msg key alt? ctrl? shift?)]
+    [(2) (key-event-msg key alt? ctrl? shift? 'repeat)]
+    [else (key-event-msg key alt? ctrl? shift? 'press)]))
+
+;; Parse Kitty keyboard protocol query response: ESC [ ? flags u
+(define (parse-kitty-query-response port)
+  (define num 0)
+  (let loop ()
+    (define c (read-char-blocking port))
+    (cond
+      [(not c) (key-msg 'unknown #f #f)]
+      [(char-numeric? c)
+       (set! num (+ (* num 10) (- (char->integer c) (char->integer #\0))))
+       (loop)]
+      [(char=? c #\u)
+       (kitty-query-response-msg num)]
+      [else
+       (key-msg 'unknown #f #f)])))
 
 (define (read-all-available-events)
   "Read all available input events and return them as a list."

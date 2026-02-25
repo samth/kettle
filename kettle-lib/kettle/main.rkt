@@ -46,6 +46,12 @@
          (struct-out msg)
          (struct-out quit-msg)
          (struct-out key-msg)
+         (struct-out key-event-msg)
+         (struct-out key-release-msg)
+         key-msg-event-type
+         key-press?
+         key-repeat?
+         key-release?
          (struct-out paste-msg)
          (struct-out window-size-msg)
          (struct-out tick-msg)

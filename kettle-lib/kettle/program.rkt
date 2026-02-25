@@ -13,7 +13,8 @@
                         (->* (kettle-model?)
                              (#:alt-screen boolean?
                               #:mouse (or/c 'cell-motion 'all-motion #f)
-                              #:show-fps boolean?)
+                              #:show-fps boolean?
+                              #:kitty-keyboard boolean?)
                              program?)]
                        [program-run (-> program? void?)]
                        [program-send (-> program? msg? void?)]

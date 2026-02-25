@@ -58,11 +58,13 @@
 (define (make-program model
                       #:alt-screen [alt-screen #f]
                       #:mouse [mouse #f]
-                      #:show-fps [show-fps #f])
+                      #:show-fps [show-fps #f]
+                      #:kitty-keyboard [kitty-keyboard #f])
   (when (and mouse (not (memq mouse '(cell-motion all-motion))))
     (error 'make-program "Invalid :mouse option ~s; expected 'cell-motion, 'all-motion, or #f" mouse))
   (define opts (list 'alt-screen (and alt-screen #t)
-                     'mouse mouse))
+                     'mouse mouse
+                     'kitty-keyboard (and kitty-keyboard #t)))
   (program model
            (make-renderer)
            (make-async-channel)
@@ -141,6 +143,7 @@
   (define opts (program-options p))
   (define alt (opts-ref opts 'alt-screen))
   (define mouse (opts-ref opts 'mouse))
+  (define kitty (opts-ref opts 'kitty-keyboard))
 
   (parameterize ([current-program p])
     ;; Open /dev/tty
@@ -192,7 +195,8 @@
        (kill-thread input-thd))
 
      #:alt-screen alt
-     #:mouse mouse)))
+     #:mouse mouse
+     #:kitty-keyboard kitty)))
 
 ;; Main event processing loop with batched message processing.
 (define (event-loop p)
@@ -286,6 +290,8 @@
         [(quit-msg? m)
          (set-program-running?! p #f)
          (return (void))]
+        ;; Internal: Kitty keyboard protocol query response (discard)
+        [(kitty-query-response-msg? m) (void)]
         ;; FPS toggle hotkey: Alt+F
         [(and (key-msg? m)
               (key-msg-alt m)
@@ -351,6 +357,7 @@
   (define opts (program-options p))
   (define alt (opts-ref opts 'alt-screen))
   (define mouse (opts-ref opts 'mouse))
+  (define kitty (opts-ref opts 'kitty-keyboard))
   (define exec-prog (exec-cmd-program cmd))
   (define exec-args (exec-cmd-args cmd))
   (define callback (exec-cmd-callback cmd))
@@ -359,7 +366,7 @@
   (set-program-input-paused?! p #t)
 
   ;; Suspend terminal
-  (define restore-fn (suspend-terminal #:alt-screen alt #:mouse mouse))
+  (define restore-fn (suspend-terminal #:alt-screen alt #:mouse mouse #:kitty-keyboard kitty))
 
   (dynamic-wind
     void

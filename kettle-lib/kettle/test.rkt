@@ -18,6 +18,7 @@
          ;; Event injection
          test-program-send
          test-program-press
+         test-program-release
          test-program-type
          test-program-resize
 

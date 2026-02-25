@@ -31,6 +31,8 @@
          disable-bracketed-paste
          enable-focus-events
          disable-focus-events
+         enable-kitty-keyboard
+         disable-kitty-keyboard
          suspend-terminal
          resume-terminal
          with-raw-terminal
@@ -155,11 +157,25 @@
   (display (format "~a[?1004l" ESC) port)
   (flush-output port))
 
+;; Kitty keyboard protocol: push enhanced mode
+;; flags bitmask: 0x1=disambiguate, 0x2=event types, 0x4=alternate keys
+(define (enable-kitty-keyboard [port (tty-output)] #:flags [flags 3])
+  (display (format "~a[>~au" ESC flags) port)
+  (flush-output port))
+
+;; Kitty keyboard protocol: pop mode (restore previous)
+(define (disable-kitty-keyboard [port (tty-output)])
+  (display (format "~a[<u" ESC) port)
+  (flush-output port))
+
 ;;; Suspend/resume support
 
 (define (suspend-terminal #:alt-screen [alt-screen #f]
                           #:mouse [mouse #f]
-                          #:focus-events [focus-events #f])
+                          #:focus-events [focus-events #f]
+                          #:kitty-keyboard [kitty-keyboard #f])
+  (when kitty-keyboard
+    (disable-kitty-keyboard))
   (when mouse
     (disable-mouse))
   (disable-bracketed-paste)
@@ -180,6 +196,8 @@
     (enable-bracketed-paste)
     (when focus-events
       (enable-focus-events))
+    (when kitty-keyboard
+      (enable-kitty-keyboard))
     (case mouse
       [(cell-motion) (enable-mouse-cell-motion)]
       [(all-motion) (enable-mouse-all-motion)]
@@ -194,7 +212,8 @@
 (define (with-raw-terminal thunk
                            #:alt-screen [alt-screen #f]
                            #:mouse [mouse #f]
-                           #:focus-events [focus-events #t])
+                           #:focus-events [focus-events #t]
+                           #:kitty-keyboard [kitty-keyboard #f])
   (define raw-ok #f)
   (dynamic-wind (lambda ()
                   (enter-raw-mode)
@@ -208,6 +227,8 @@
                     (enable-bracketed-paste))
                   (when focus-events
                     (enable-focus-events))
+                  (when kitty-keyboard
+                    (enable-kitty-keyboard))
                   (case mouse
                     [(cell-motion) (enable-mouse-cell-motion)]
                     [(all-motion) (enable-mouse-all-motion)]
@@ -215,6 +236,8 @@
                 thunk
                 (lambda ()
                   (with-handlers ([exn:fail? void])
+                    (when kitty-keyboard
+                      (disable-kitty-keyboard))
                     (when alt-screen
                       (exit-alt-screen))
                     (when mouse

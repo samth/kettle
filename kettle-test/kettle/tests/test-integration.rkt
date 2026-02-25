@@ -4,8 +4,10 @@
 ;; Tests full application lifecycle for all 4 example programs.
 
 (require rackunit
+         racket/match
          racket/string
          kettle/test
+         (only-in kettle/image text)
          kettle/examples/counter
          kettle/examples/stopwatch
          kettle/examples/todo
@@ -295,3 +297,54 @@
   (for ([_ (in-range 100)])
     (test-program-press tp #\+))
   (check-test-program-contains tp "Count: 100"))
+
+;;; ============================================================
+;;; Kitty keyboard protocol: key-event-msg / key-release-msg
+;;; ============================================================
+
+(test-case "kitty: key-event-msg press matches key-msg patterns in update"
+  (define tp (make-test-program/run 0 #:on-key counter-on-key #:to-view counter-view))
+  ;; Send a key-event-msg press -- should match (key-msg #\+ _ _) in counter-on-key
+  (test-program-send tp (key-event-msg #\+ #f #f #f 'press))
+  (check-test-program-contains tp "Count: 1"))
+
+(test-case "kitty: key-event-msg repeat matches key-msg patterns"
+  (define tp (make-test-program/run 0 #:on-key counter-on-key #:to-view counter-view))
+  ;; Repeat events are subtypes of key-msg, so they match existing patterns
+  (test-program-send tp (key-event-msg #\+ #f #f #f 'repeat))
+  (check-test-program-contains tp "Count: 1")
+  (test-program-send tp (key-event-msg #\+ #f #f #f 'repeat))
+  (check-test-program-contains tp "Count: 2"))
+
+(test-case "kitty: key-release-msg does NOT trigger key-msg patterns"
+  (define tp (make-test-program/run 0 #:on-key counter-on-key #:to-view counter-view))
+  (test-program-press tp #\+)
+  (check-test-program-contains tp "Count: 1")
+  ;; Release should not match counter-on-key's key-msg patterns
+  (test-program-release tp #\+)
+  (check-test-program-contains tp "Count: 1")
+  (test-program-release tp #\-)
+  (check-test-program-contains tp "Count: 1"))
+
+(test-case "kitty: key-release-msg can be explicitly handled via on-msg"
+  (define tp
+    (make-test-program/run
+     (cons 0 0)
+     #:on-key (lambda (state km)
+                (match km
+                  [(key-msg #\j _ _) (cons (add1 (car state)) (cdr state))]
+                  [_ state]))
+     #:on-msg (lambda (state msg)
+                (if (key-release? msg)
+                    (cons (car state) (add1 (cdr state)))
+                    state))
+     #:to-view (lambda (state) (text (format "P:~a R:~a" (car state) (cdr state))))))
+  (check-test-program-contains tp "P:0 R:0")
+  (test-program-press tp #\j)
+  (check-test-program-contains tp "P:1 R:0")
+  (test-program-release tp #\j)
+  (check-test-program-contains tp "P:1 R:1")
+  (test-program-press tp #\j)
+  (check-test-program-contains tp "P:2 R:1")
+  (test-program-release tp #\j)
+  (check-test-program-contains tp "P:2 R:2"))

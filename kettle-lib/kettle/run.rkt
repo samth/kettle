@@ -21,7 +21,8 @@
                                        #:stop-when (or/c #f (-> any/c boolean?))
                                        #:alt-screen boolean?
                                        #:mouse (or/c 'cell-motion 'all-motion #f)
-                                       #:show-fps boolean?)
+                                       #:show-fps boolean?
+                                       #:kitty-keyboard boolean?)
                              void?)])
          on-key
          on-msg
@@ -82,7 +83,9 @@
              #:stop-when [stop-fn #f]
              #:alt-screen [alt-screen #f]
              #:mouse [mouse #f]
-             #:show-fps [show-fps #f])
+             #:show-fps [show-fps #f]
+             #:kitty-keyboard [kitty-keyboard #f])
   (define model (run-model initial-value on-key-fn on-msg-fn view-fn stop-fn))
-  (define p (make-program model #:alt-screen alt-screen #:mouse mouse #:show-fps show-fps))
+  (define p (make-program model #:alt-screen alt-screen #:mouse mouse #:show-fps show-fps
+                          #:kitty-keyboard kitty-keyboard))
   (program-run p))

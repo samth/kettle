@@ -21,6 +21,7 @@
          ;; Event injection
          test-program-send
          test-program-press
+         test-program-release
          test-program-type
          test-program-resize
 
@@ -218,6 +219,10 @@
 ;; #:alt and #:ctrl are booleans for modifier keys.
 (define (test-program-press tp key #:alt [alt #f] #:ctrl [ctrl #f])
   (test-program-send tp (key-msg key alt ctrl)))
+
+;; Release a key (Kitty keyboard protocol).
+(define (test-program-release tp key #:alt [alt #f] #:ctrl [ctrl #f] #:shift [shift #f])
+  (test-program-send tp (key-release-msg key alt ctrl shift)))
 
 ;; Type a string character by character.
 (define (test-program-type tp str)
