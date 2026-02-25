@@ -245,6 +245,8 @@
     (when last-style
       (write-string (ansi-reset) out)
       (set! last-style #f))
+    ;; Clear any stale characters to the right from a previous wider frame
+    (write-string (format "~a[K" ESC) out)
     ;; CR+LF between rows: in raw mode OPOST is off, so a bare
     ;; newline only does LF (cursor moves down but stays at the
     ;; same column).  We need CR to return to column 1.

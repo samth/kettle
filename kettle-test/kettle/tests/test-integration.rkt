@@ -7,7 +7,7 @@
          racket/match
          racket/string
          kettle/test
-         (only-in kettle/image text)
+         (only-in kettle/image text vcat)
          kettle/examples/counter
          kettle/examples/stopwatch
          kettle/examples/todo
@@ -297,6 +297,23 @@
   (for ([_ (in-range 100)])
     (test-program-press tp #\+))
   (check-test-program-contains tp "Count: 100"))
+
+;; Regression: when scrolling the log viewer, shorter lines that replace
+;; longer lines left stale characters on the right side of the terminal.
+;; The fix: emit ESC[K (clear to end of line) after each row in the
+;; cell buffer output.
+(test-case "regression: rendered output includes clear-to-end-of-line"
+  (define img (vcat 'left (text "long line here")
+                          (text "short")))
+  (define rendered (image->string img))
+  ;; Each row should end with ESC[K (clear to end of line)
+  ;; The output has two lines separated by \r\n
+  (define lines (string-split rendered "\r\n"))
+  (check-equal? (length lines) 2)
+  ;; Both lines should end with ESC[K
+  (for ([line (in-list lines)])
+    (check-true (string-suffix? line "\e[K")
+                (format "Line should end with ESC[K: ~s" line))))
 
 ;;; ============================================================
 ;;; Kitty keyboard protocol: key-event-msg / key-release-msg
