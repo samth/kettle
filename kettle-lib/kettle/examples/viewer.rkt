@@ -53,8 +53,14 @@
      (define-values (new-vp cmd) (update (file-viewer-viewport fv) msg))
      (values (struct-copy file-viewer fv [viewport new-vp]) cmd)]))
 
+(define (truncate-to-width str w)
+  (if (<= (string-length str) w)
+      str
+      (substring str 0 w)))
+
 (define (file-viewer-view fv)
   (define vp (file-viewer-viewport fv))
+  (define w (vp:viewport-width vp))
   (define pct (vp:viewport-scroll-percent vp))
   (define total (vp:viewport-total-lines vp))
   (define fname (file-viewer-filename fv))
@@ -62,11 +68,15 @@
   (define footer-style (make-style #:faint #t))
 
   (vcat 'left
-        (styled header-style (text (format " ~a  (~a lines) " fname total)))
+        (styled header-style (text (truncate-to-width
+                                    (format " ~a  (~a lines) " fname total)
+                                    w)))
         (view vp)
         (styled footer-style
-                (text (format " ~a%  j/k:scroll  space/b:page  g/G:top/bottom  q:quit"
-                              (~r (* 100 pct) #:precision '(= 0)))))))
+                (text (truncate-to-width
+                       (format " ~a%  j/k:scroll  space/b:page  g/G:top/bottom  q:quit"
+                               (~r (* 100 pct) #:precision '(= 0)))
+                       w)))))
 
 (module+ main
   (define args (current-command-line-arguments))

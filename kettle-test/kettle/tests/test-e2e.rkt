@@ -27,7 +27,7 @@
 
 ;; Helper: make a viewer temp file with specified content
 (define (make-viewer-temp-file lines)
-  (define temp-file (make-temporary-file "kettle-viewer-~a.txt"))
+  (define temp-file (make-temporary-file "kv~a.txt"))
   (call-with-output-file temp-file
                          (lambda (out)
                            (for ([i (in-range 1 (add1 lines))])
