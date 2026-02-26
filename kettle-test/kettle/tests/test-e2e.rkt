@@ -176,7 +176,7 @@
                        (check-tmux-contains sw "RUNNING"))
                      (test-case "e2e stopwatch: time accumulates while running"
                        ;; Already running from previous test
-                       (sleep 1.2)
+                       (sleep 0.5)
                        (send+wait sw "Space" "STOPPED")
                        (check-tmux-contains sw "STOPPED")
                        ;; With hundredths display, 00:00.00 means zero elapsed

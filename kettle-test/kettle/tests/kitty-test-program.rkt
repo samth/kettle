@@ -11,6 +11,7 @@
 
 (module+ main
   (run (list)
+       #:alt-screen #t
        #:kitty-keyboard #t
        #:on-key
        (lambda (events km)
@@ -32,7 +33,7 @@
                   (equal? (key-msg-key km) #\q)
                   (not (key-msg-ctrl km))
                   (not (key-msg-alt km)))
-             (values new-events (quit-cmd))
+             (cmd new-events (quit-cmd))
              new-events))
        #:on-msg
        (lambda (events msg)
@@ -47,7 +48,7 @@
            [else events]))
        #:to-view
        (lambda (events)
-         (apply vcat
+         (apply vcat 'left
                 (text "KITTY-TEST-READY")
                 (if (null? events)
                     (list (text "NO-EVENTS"))
