@@ -19,14 +19,14 @@
 ;;; Process info
 ;;; ============================================================
 
-(struct proc-info (pid user cpu mem vsz rss tty stat start time command) #:transparent)
+(struct proc-info (pid user cpu mem stat time command) #:transparent)
 
 ;; Read process list from /proc or ps
 (define (read-processes)
   (with-handlers ([exn:fail? (lambda (_) '())])
     (define-values (proc stdout stdin stderr)
       (subprocess #f #f #f (find-executable-path "ps")
-                  "ax" "-o" "pid,user,pcpu,pmem,vsz,rss,tty,stat,start,time,comm"
+                  "ax" "-o" "pid,user,pcpu,pmem,stat,etime,comm"
                   "--no-headers" "--sort=-pcpu"))
     (define lines (port->lines stdout))
     (close-input-port stdout)
@@ -36,22 +36,18 @@
     (for/list ([line (in-list lines)]
                #:when (not (string=? (string-trim line) "")))
       (define parts (string-split (string-trim line)))
-      (if (>= (length parts) 11)
+      (if (>= (length parts) 7)
           (proc-info (list-ref parts 0)
                      (list-ref parts 1)
                      (list-ref parts 2)
                      (list-ref parts 3)
                      (list-ref parts 4)
                      (list-ref parts 5)
-                     (list-ref parts 6)
-                     (list-ref parts 7)
-                     (list-ref parts 8)
-                     (list-ref parts 9)
-                     (string-join (drop parts 10) " "))
+                     (string-join (drop parts 6) " "))
           (proc-info (list-ref parts 0)
                      (if (> (length parts) 1) (list-ref parts 1) "?")
-                     "0.0" "0.0" "0" "0" "?" "?" "?" "0:00"
-                     (string-join (drop parts (min (length parts) 10)) " "))))))
+                     "0.0" "0.0" "?" "0:00"
+                     (string-join (drop parts (min (length parts) 6)) " "))))))
 
 ;; Read system load averages
 (define (read-load-average)
@@ -225,16 +221,28 @@
             header-style))
       (styled s* (text (~a label #:min-width width #:max-width width))))
 
+    ;; Column widths (not including separators)
+    (define col-pid 7)
+    (define col-user 9)
+    (define col-cpu 5)
+    (define col-mem 5)
+    (define col-stat 5)
+    (define col-time 12)
+    (define col-fixed (+ col-pid 1 col-user 1 col-cpu 1 col-mem 1 col-stat 1 col-time 1))
+    (define col-cmd (max 10 (- w col-fixed)))
+
+    (define (sep) (text " "))
+
     (define header-row
       (styled header-style
               (hcat 'top
-                    (col-header 'pid "PID" 7)
-                    (col-header 'user "USER" 10)
-                    (col-header 'cpu "%CPU" 6)
-                    (col-header 'mem "%MEM" 6)
-                    (text (~a "STAT" #:min-width 5 #:max-width 5))
-                    (text (~a "TIME" #:min-width 9 #:max-width 9))
-                    (col-header 'command "COMMAND" (max 10 (- w 43))))))
+                    (col-header 'pid "PID" col-pid) (sep)
+                    (col-header 'user "USER" col-user) (sep)
+                    (col-header 'cpu "%CPU" col-cpu) (sep)
+                    (col-header 'mem "%MEM" col-mem) (sep)
+                    (text (~a "STAT" #:min-width col-stat #:max-width col-stat)) (sep)
+                    (text (~a "TIME" #:min-width col-time #:max-width col-time)) (sep)
+                    (col-header 'command "COMMAND" col-cmd))))
 
     ;; Process rows
     (define visible-rows (max 0 (- h 4)))
@@ -242,7 +250,6 @@
     (define visible-procs (take (drop procs (min scroll (length procs)))
                                 (min visible-rows
                                      (max 0 (- (length procs) scroll)))))
-    (define cmd-width (max 10 (- w 43)))
 
     (define (proc-row p i)
       (define cpu-val (string->number (proc-info-cpu p)))
@@ -257,13 +264,13 @@
           [else #f]))
       (define row-img
         (hcat 'top
-              (text (~a (proc-info-pid p) #:min-width 7 #:max-width 7))
-              (text (~a (proc-info-user p) #:min-width 10 #:max-width 10))
-              (text (~a (proc-info-cpu p) #:min-width 6 #:max-width 6 #:align 'right))
-              (text (~a (proc-info-mem p) #:min-width 6 #:max-width 6 #:align 'right))
-              (text (~a (proc-info-stat p) #:min-width 5 #:max-width 5))
-              (text (~a (proc-info-time p) #:min-width 9 #:max-width 9))
-              (text (~a (proc-info-command p) #:min-width cmd-width #:max-width cmd-width))))
+              (text (~a (proc-info-pid p) #:min-width col-pid #:max-width col-pid)) (sep)
+              (text (~a (proc-info-user p) #:min-width col-user #:max-width col-user)) (sep)
+              (text (~a (proc-info-cpu p) #:min-width col-cpu #:max-width col-cpu #:align 'right)) (sep)
+              (text (~a (proc-info-mem p) #:min-width col-mem #:max-width col-mem #:align 'right)) (sep)
+              (text (~a (proc-info-stat p) #:min-width col-stat #:max-width col-stat)) (sep)
+              (text (~a (proc-info-time p) #:min-width col-time #:max-width col-time)) (sep)
+              (text (~a (proc-info-command p) #:min-width col-cmd #:max-width col-cmd))))
       (if row-style
           (styled row-style row-img)
           row-img))
