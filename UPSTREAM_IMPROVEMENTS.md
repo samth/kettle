@@ -129,8 +129,9 @@ should be upstreamed.
 
 ## Summary of changes to ansi/lcd-terminal.rkt
 
-All changes are in the local clone at
-`/home/samth/sw/racket-scratch/extra-pkgs/ansi/`. The diff adds ~89 lines to
+All changes are on the `kettle-extensions` branch of
+<https://github.com/samth/racket-ansi> (also in the local clone at
+`/home/samth/sw/racket-scratch/extra-pkgs/ansi/`). The diff adds ~89 lines to
 `ansi/lcd-terminal.rkt`:
 
 - New structs: `kitty-key-event`, `bracketed-paste-event`
