@@ -25,14 +25,20 @@ jobs:
       - name: Install packages
         run: raco pkg install --auto --no-docs ./kettle-lib ./kettle-examples ./kettle-doc ./kettle-test ./kettle
 
+      - name: Check package dependencies
+        run: raco setup --check-pkg-deps --pkgs kettle-lib kettle-doc kettle-examples kettle-test kettle
+
       - name: Run unit and integration tests
-        run: |
-          raco test -y kettle-test/kettle/tests/test-counter.rkt
-          raco test -y kettle-test/kettle/tests/test-stopwatch.rkt
-          raco test -y kettle-test/kettle/tests/test-todo.rkt
-          raco test -y kettle-test/kettle/tests/test-viewer.rkt
-          raco test -y kettle-test/kettle/tests/test-fps.rkt
-          raco test -y kettle-test/kettle/tests/test-integration.rkt
+        run: >-
+          raco test -y
+          kettle-test/kettle/tests/test-input.rkt
+          kettle-test/kettle/tests/test-renderer.rkt
+          kettle-test/kettle/tests/test-counter.rkt
+          kettle-test/kettle/tests/test-stopwatch.rkt
+          kettle-test/kettle/tests/test-todo.rkt
+          kettle-test/kettle/tests/test-viewer.rkt
+          kettle-test/kettle/tests/test-fps.rkt
+          kettle-test/kettle/tests/test-integration.rkt
 
       - name: Run e2e tests
         run: raco test -y kettle-test/kettle/tests/test-e2e.rkt

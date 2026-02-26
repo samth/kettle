@@ -78,6 +78,8 @@ kettle-test/kettle/tests/tmux-run.sh test-kitty-manual.rkt 10 "+" 2
 
 This is useful for testing TUI programs that need a real terminal (e.g. Kitty keyboard protocol, mouse input, alternate screen).
 
+**Important:** Always use `tmux-run.sh` for manual tmux testing. Do not construct raw tmux commands directly.
+
 ## License
 
 MIT
