@@ -12,11 +12,15 @@
 (require racket/string
          racket/list
          racket/match
-         racket/format)
+         racket/format
+         (prefix-in ansi: ansi/ansi)
+         tui/ubuf/color
+         (only-in tui/ubuf/eaw-categories char-east-asian-width-property))
 
 (provide ;; ANSI utilities
          ansi-color
          ansi-reset
+         color->sgr-code
 
          ;; Extended colors
          color-256
@@ -70,37 +74,57 @@
          bidi-isolate
          bidi-isolate-ltr)
 
-(define ESC "\e")
-
 ;;; ANSI color codes
 (define (ansi-color code)
-  (format "~a[~am" ESC code))
+  (ansi:select-graphic-rendition code))
 
 (define (ansi-reset)
-  (format "~a[0m" ESC))
+  (ansi:select-graphic-rendition))
 
 ;;; Extended color support
+;;
+;; Colors are integers following the tui-ubuf model:
+;;   0-7:    basic ANSI colors
+;;   8-15:   bright ANSI colors
+;;   16-255: 256-color palette
+;;   #x1RRGGBB: truecolor (packed via make-ubuf-truecolor)
+;;   #f:     no color / default
 
-(define (color-256 n #:foreground [foreground #t])
-  (format "~a;5;~a" (if foreground "38" "48") n))
+(define (color-256 n)
+  n)
 
-(define (color-rgb r g b #:foreground [foreground #t])
-  (format "~a;2;~a;~a;~a" (if foreground "38" "48") r g b))
+(define (color-rgb r g b)
+  (make-ubuf-truecolor r g b))
 
-(define (parse-hex-color hex #:foreground [foreground #t])
+(define (parse-hex-color hex)
   (define clean (string-trim hex "#"))
   (cond
     [(= (string-length clean) 6)
      (define r (string->number (substring clean 0 2) 16))
      (define g (string->number (substring clean 2 4) 16))
      (define b (string->number (substring clean 4 6) 16))
-     (color-rgb r g b #:foreground foreground)]
+     (color-rgb r g b)]
     [(= (string-length clean) 3)
      (define r (string->number (string (string-ref clean 0)) 16))
      (define g (string->number (string (string-ref clean 1)) 16))
      (define b (string->number (string (string-ref clean 2)) 16))
-     (color-rgb (* r 17) (* g 17) (* b 17) #:foreground foreground)]
+     (color-rgb (* r 17) (* g 17) (* b 17))]
     [else (error 'parse-hex-color "Invalid hex color: ~a" hex)]))
+
+;;; Convert an integer color to an ANSI SGR code string
+(define (color->sgr-code color fg?)
+  (cond
+    [(not color) #f]
+    [(ubuf-truecolor? color)
+     (define-values (r g b) (split-ubuf-truecolor color))
+     (format "~a;2;~a;~a;~a" (if fg? "38" "48") r g b)]
+    [(<= 0 color 7)
+     (number->string (+ color (if fg? 30 40)))]
+    [(<= 8 color 15)
+     (number->string (+ (- color 8) (if fg? 90 100)))]
+    [(<= 0 color 255)
+     (format "~a;5;~a" (if fg? "38" "48") color)]
+    [else #f]))
 
 ;;; Adaptive colors
 (struct adaptive-color (light dark) #:transparent)
@@ -150,12 +174,10 @@
        [(truecolor)
         (or (and (complete-color-truecolor color)
                  (parse-hex-color (complete-color-truecolor color)))
-            (and (complete-color-ansi256 color)
-                 (color-256 (complete-color-ansi256 color)))
+            (complete-color-ansi256 color)
             (complete-color-ansi color))]
        [(256color)
-        (or (and (complete-color-ansi256 color)
-                 (color-256 (complete-color-ansi256 color)))
+        (or (complete-color-ansi256 color)
             (complete-color-ansi color))]
        [else (complete-color-ansi color)])]
     [else color]))
@@ -174,78 +196,51 @@
          (adaptive-color-light color))]
     [else (resolve-color color)]))
 
-;;; Color code normalization
-(define (as-foreground-code code)
-  (cond
-    [(not code) #f]
-    [(not (string? code)) code]
-    [(string-contains? code "48;2;")
-     (string-replace code "48;2;" "38;2;" #:all? #f)]
-    [else
-     (define n (string->number code))
-     (cond
-       [(and n (<= 40 n) (<= n 47)) (number->string (- n 10))]
-       [(and n (<= 100 n) (<= n 107)) (number->string (- n 10))]
-       [else code])]))
+;;; Foreground colors (integers — fg/bg distinction is context-dependent)
+(define fg-black 0)
+(define fg-red 1)
+(define fg-green 2)
+(define fg-yellow 3)
+(define fg-blue 4)
+(define fg-magenta 5)
+(define fg-cyan 6)
+(define fg-white 7)
+(define fg-bright-black 8)
+(define fg-bright-red 9)
+(define fg-bright-green 10)
+(define fg-bright-yellow 11)
+(define fg-bright-blue 12)
+(define fg-bright-magenta 13)
+(define fg-bright-cyan 14)
+(define fg-bright-white 15)
 
-(define (as-background-code code)
-  (cond
-    [(not code) #f]
-    [(not (string? code)) code]
-    [(string-contains? code "38;2;")
-     (string-replace code "38;2;" "48;2;" #:all? #f)]
-    [else
-     (define n (string->number code))
-     (cond
-       [(and n (<= 30 n) (<= n 37)) (number->string (+ n 10))]
-       [(and n (<= 90 n) (<= n 97)) (number->string (+ n 10))]
-       [else code])]))
+;;; Background colors (same integer values — fg/bg applied at render time)
+(define bg-black 0)
+(define bg-red 1)
+(define bg-green 2)
+(define bg-yellow 3)
+(define bg-blue 4)
+(define bg-magenta 5)
+(define bg-cyan 6)
+(define bg-white 7)
+(define bg-bright-black 8)
+(define bg-bright-red 9)
+(define bg-bright-green 10)
+(define bg-bright-yellow 11)
+(define bg-bright-blue 12)
+(define bg-bright-magenta 13)
+(define bg-bright-cyan 14)
+(define bg-bright-white 15)
 
-;;; Foreground colors
-(define fg-black "30")
-(define fg-red "31")
-(define fg-green "32")
-(define fg-yellow "33")
-(define fg-blue "34")
-(define fg-magenta "35")
-(define fg-cyan "36")
-(define fg-white "37")
-(define fg-bright-black "90")
-(define fg-bright-red "91")
-(define fg-bright-green "92")
-(define fg-bright-yellow "93")
-(define fg-bright-blue "94")
-(define fg-bright-magenta "95")
-(define fg-bright-cyan "96")
-(define fg-bright-white "97")
-
-;;; Background colors
-(define bg-black "40")
-(define bg-red "41")
-(define bg-green "42")
-(define bg-yellow "43")
-(define bg-blue "44")
-(define bg-magenta "45")
-(define bg-cyan "46")
-(define bg-white "47")
-(define bg-bright-black "100")
-(define bg-bright-red "101")
-(define bg-bright-green "102")
-(define bg-bright-yellow "103")
-(define bg-bright-blue "104")
-(define bg-bright-magenta "105")
-(define bg-bright-cyan "106")
-(define bg-bright-white "107")
-
-;;; Text attributes
-(define attr-bold "1")
-(define attr-dim "2")
-(define attr-italic "3")
-(define attr-underline "4")
-(define attr-blink "5")
-(define attr-reverse "7")
-(define attr-hidden "8")
-(define attr-strikethrough "9")
+;;; Text attributes (SGR parameter numbers)
+(define attr-bold 1)
+(define attr-dim 2)
+(define attr-italic 3)
+(define attr-underline 4)
+(define attr-blink 5)
+(define attr-reverse 7)
+(define attr-hidden 8)
+(define attr-strikethrough 9)
 
 ;;; Style structure
 (struct style
@@ -290,42 +285,18 @@
        lines))
 
 ;;; Character width utilities
-
-(define (combining-char? code)
-  (define (in-range? ranges)
-    (for/or ([r (in-list ranges)])
-      (and (<= (first r) code) (<= code (second r)))))
-  (in-range? '((#x0300 #x036F) (#x0483 #x0489) (#x0591 #x05BD)
-               (#x05BF #x05BF) (#x05C1 #x05C2) (#x05C4 #x05C5)
-               (#x05C7 #x05C7) (#x0610 #x061A) (#x064B #x065F)
-               (#x0670 #x0670) (#x06D6 #x06DC) (#x06DF #x06E4)
-               (#x06E7 #x06E8) (#x06EA #x06ED)
-               (#x200B #x200F) (#x202A #x202E) (#x2060 #x2064)
-               (#x2066 #x2069) (#x20D0 #x20FF) (#xFE20 #xFE2F))))
-
-(define (east-asian-wide? code)
-  (define (in-range? ranges)
-    (for/or ([r (in-list ranges)])
-      (and (<= (first r) code) (<= code (second r)))))
-  (in-range? '((#x1100 #x115F) (#x231A #x231B) (#x2329 #x232A)
-               (#x23E9 #x23EC) (#x23F0 #x23F3) (#x25FD #x25FE)
-               (#x2600 #x2605) (#x2614 #x2615) (#x2648 #x2653)
-               (#x2E80 #x2FFF) (#x3000 #x303F) (#x3040 #x309F)
-               (#x30A0 #x30FF) (#x3100 #x312F) (#x3130 #x318F)
-               (#x31A0 #x31EF) (#x3200 #x32FF) (#x3400 #x4DBF)
-               (#x4E00 #x9FFF) (#xA960 #xA97F) (#xAC00 #xD7A3)
-               (#xF900 #xFAFF) (#xFE10 #xFE19) (#xFE30 #xFE6B)
-               (#xFF01 #xFF60) (#xFFE0 #xFFE6)
-               (#x1F300 #x1F64F) (#x1F900 #x1F9FF))))
+;; Uses tui-ubuf's auto-generated East Asian Width tables for comprehensive
+;; Unicode coverage instead of hand-maintained ranges.
 
 (define (char-display-width ch)
   (define code (char->integer ch))
   (cond
     [(< code 32) 0]
     [(= code #x7F) 0]
-    [(combining-char? code) 0]
-    [(east-asian-wide? code) 2]
-    [else 1]))
+    [else
+     (case (char-east-asian-width-property ch)
+       [(F W) 2]
+       [else 1])]))
 
 (define (visible-length str)
   "Calculate visible display width of STR, excluding ANSI escapes."
@@ -411,15 +382,17 @@
   (when (style-reverse? s) (set! codes (append codes (list attr-reverse))))
   (when (style-strikethrough? s) (set! codes (append codes (list attr-strikethrough))))
   (when (style-foreground s)
-    (define fg-code (as-foreground-code (resolve-adaptive-color (style-foreground s))))
+    (define resolved-fg (resolve-adaptive-color (style-foreground s)))
+    (define fg-code (color->sgr-code resolved-fg #t))
     (when fg-code (set! codes (append codes (list fg-code)))))
   (when (style-background s)
-    (define bg-code (as-background-code (resolve-adaptive-color (style-background s))))
+    (define resolved-bg (resolve-adaptive-color (style-background s)))
+    (define bg-code (color->sgr-code resolved-bg #f))
     (when bg-code (set! codes (append codes (list bg-code)))))
 
   (set! result
         (if (not (null? codes))
-            (let* ([seq (format "~a[~am" ESC (string-join codes ";"))]
+            (let* ([seq (apply ansi:select-graphic-rendition codes)]
                    [rst (ansi-reset)]
                    [rst+seq (string-append rst seq)]
                    [lines (split-string-by-newline result)])
@@ -466,7 +439,7 @@
 
 (define (apply-underline-to-text-only text)
   (define on (ansi-color attr-underline))
-  (define off (ansi-color "24"))
+  (define off (ansi-color 24))
   (string-join
    (map (lambda (line)
           (define len (string-length line))

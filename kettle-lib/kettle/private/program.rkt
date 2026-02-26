@@ -103,7 +103,7 @@
 
 ;; Overlay an FPS counter in the bottom-right corner of the terminal.
 ;; Uses exponential moving average for smooth display.
-(define fps-label-style (make-style #:foreground "33" #:background "40" #:bold #t))
+(define fps-label-style (make-style #:foreground fg-yellow #:background bg-black #:bold #t))
 (define (overlay-fps img p)
   (define now (current-inexact-milliseconds))
   (define last (program-last-render-time p))

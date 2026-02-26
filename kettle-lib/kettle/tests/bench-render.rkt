@@ -52,8 +52,8 @@
          (for/list ([i (in-range h)])
            (define sty
              (make-style #:bold (even? i)
-                         #:foreground (list-ref '("31" "32" "33" "34" "35" "36") (modulo i 6))
-                         #:background (if (even? i) "40" #f)))
+                         #:foreground (list-ref (list fg-red fg-green fg-yellow fg-blue fg-magenta fg-cyan) (modulo i 6))
+                         #:background (if (even? i) bg-black #f)))
            (styled sty (text (make-string w (integer->char (+ 65 (modulo i 26)))))))))
 
 ;; Build a complex nested layout: header + viewport + footer with borders

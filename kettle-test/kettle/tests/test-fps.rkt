@@ -40,7 +40,7 @@
 (test-case "fps: overlay produces valid image"
   (define base
     (vcat 'left (text (make-string 80 #\=)) (text "Hello world") (text (make-string 80 #\-))))
-  (define fps-style (make-style #:foreground "33" #:background "40" #:bold #t))
+  (define fps-style (make-style #:foreground fg-yellow #:background bg-black #:bold #t))
   (define label (styled fps-style (text " 60 fps ")))
   (define w (image-w base))
   (define label-w (image-w label))
@@ -55,7 +55,7 @@
 ;; Test that narrow images handle the overlay gracefully
 (test-case "fps: overlay skips narrow images"
   (define narrow (text "Hi"))
-  (define fps-style (make-style #:foreground "33" #:background "40" #:bold #t))
+  (define fps-style (make-style #:foreground fg-yellow #:background bg-black #:bold #t))
   (define label (styled fps-style (text " 99 fps ")))
   ;; Label is wider than image -- overlay would not apply
   (check-true (> (image-w label) (image-w narrow))))

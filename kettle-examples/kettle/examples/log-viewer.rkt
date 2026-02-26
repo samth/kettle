@@ -302,7 +302,7 @@
 ;; Highlight search term occurrences within visible text.
 ;; Returns an image with the query highlighted.
 (define highlight-style (make-style #:reverse #t #:bold #t))
-(define current-highlight-style (make-style #:foreground "0" #:background "3" #:bold #t))
+(define current-highlight-style (make-style #:foreground fg-black #:background bg-yellow #:bold #t))
 
 (define (highlight-text content query is-current?)
   (if (or (string=? query "") (string=? content ""))
@@ -363,7 +363,7 @@
   (define header-style (make-style #:bold #t #:reverse #t))
   (define footer-style (make-style #:faint #t))
   (define gutter-style (make-style #:faint #t))
-  (define match-gutter-style (make-style #:foreground "3" #:bold #t))
+  (define match-gutter-style (make-style #:foreground fg-yellow #:bold #t))
 
   (define fname (log-viewer-filename lv))
   (define pct (scroll-percent lv))

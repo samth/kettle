@@ -103,7 +103,7 @@
           (define header (bold (format "Snake  Score: ~a" sc)))
           (define footer
             (if (eq? (snake-game-state self) 'game-over)
-                (styled (make-style #:bold #t #:fg fg-red) "GAME OVER  (r)estart  (q)uit")
+                (styled (make-style #:bold #t #:foreground fg-red) "GAME OVER  (r)estart  (q)uit")
                 "  arrows/hjkl: move  r: restart  q: quit"))
 
           (apply vcat 'left header top-border (append bordered-rows (list bottom-border footer)))))

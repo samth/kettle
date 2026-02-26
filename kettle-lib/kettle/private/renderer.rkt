@@ -8,11 +8,20 @@
 ;; Racket port
 ;;
 ;; Cell-buffer rendering engine.
-;; Walks an image tree (or accepts a plain string), fills a cell grid,
-;; diffs against the previous frame, and emits minimal ANSI output.
+;; Walks an image tree (or accepts a plain string), fills a cell grid
+;; backed by tui-ubuf, and emits minimal ANSI output via dirty tracking.
 
 (require racket/match
+         racket/list
          racket/string
+         (prefix-in ansi: ansi/ansi)
+         (only-in tui/ubuf
+                  make-ubuf ubuf? display-ubuf!
+                  ubuf-putchar! ubuf-clear!
+                  ubuf-display-linear?
+                  ubuf-display-only-dirty?
+                  ubuf-display-clear-dirty?
+                  ubuf-display-position)
          "style.rkt"
          "image.rkt")
 
@@ -25,37 +34,33 @@
          move-cursor
 
          ;; Cell buffer (for testing / advanced use)
-         (struct-out cell)
          make-cell-buffer
          cell-buffer->string
          paint!
          image->string)
 
-(define ESC "\e")
-
 ;;; ============================================================
-;;; Cell buffer
+;;; Cell buffer — thin wrapper around tui-ubuf
 ;;; ============================================================
 
-;; A cell holds a character and an optional style
-(struct cell (ch style) #:transparent)
-
-(define empty-cell (cell #\space #f))
-
-;; A cell-buffer is a width x height vector-of-vectors
-(struct cell-buffer (w h rows) #:transparent)
-
+;; make-cell-buffer creates a ubuf of the given dimensions
 (define (make-cell-buffer w h)
-  (cell-buffer w h (build-vector h (lambda (_) (make-vector w empty-cell)))))
+  (make-ubuf w h))
 
-(define (cell-buffer-ref buf col row)
-  (if (and (>= col 0) (< col (cell-buffer-w buf)) (>= row 0) (< row (cell-buffer-h buf)))
-      (vector-ref (vector-ref (cell-buffer-rows buf) row) col)
-      empty-cell))
+;;; ============================================================
+;;; Style decomposition — convert Kettle style to ubuf attributes
+;;; ============================================================
 
-(define (cell-buffer-set! buf col row c)
-  (when (and (>= col 0) (< col (cell-buffer-w buf)) (>= row 0) (< row (cell-buffer-h buf)))
-    (vector-set! (vector-ref (cell-buffer-rows buf) row) col c)))
+;; Write a single character with style into the ubuf
+(define (ubuf-set-styled! buf col row ch sty)
+  (ubuf-putchar! buf col row
+                 #:char ch
+                 #:fg (or (and sty (style-foreground sty)) 7)
+                 #:bg (or (and sty (style-background sty)) 0)
+                 #:bold (and sty (style-bold? sty) #t)
+                 #:italic (and sty (style-italic? sty) #t)
+                 #:underline (if (and sty (style-underline? sty)) 'single #f)
+                 #:blink (if (and sty (style-blink? sty)) 'slow #f)))
 
 ;;; ============================================================
 ;;; Paint: walk the image tree and fill a cell buffer
@@ -65,7 +70,7 @@
   (match img
     [(image:text w h str s) (paint-text! buf str x y (merge-style sty s))]
     [(image:blank w h) (void)]
-    [(image:char w h ch s) (cell-buffer-set! buf x y (cell ch (merge-style sty s)))]
+    [(image:char w h ch s) (ubuf-set-styled! buf x y ch (merge-style sty s))]
     [(image:hcat w h align children)
      (define cx x)
      (for ([child (in-list children)])
@@ -129,13 +134,45 @@
              (if (null? inline-codes)
                  sty
                  (make-inline-style sty inline-codes)))
-           (cell-buffer-set! buf col y (cell ch effective-style))
-           ;; For wide chars, fill the second cell with a placeholder
-           (when (= cw 2)
-             (cell-buffer-set! buf (add1 col) y (cell #\nul effective-style)))
+           ;; ubuf-putchar! handles wide chars natively
+           (ubuf-set-styled! buf col y ch effective-style)
            (set! col (+ col cw)))
          (set! i (add1 i))
          (loop)]))))
+
+;; Parse an inline ANSI SGR code string into an integer color
+(define (parse-sgr-color code fg?)
+  (define parts (string-split code ";"))
+  (define prefix (if fg? "38" "48"))
+  (cond
+    ;; Extended: 38;5;N or 48;5;N
+    [(and (>= (length parts) 3)
+          (string=? (first parts) prefix)
+          (string=? (second parts) "5"))
+     (string->number (third parts))]
+    ;; Truecolor: 38;2;R;G;B or 48;2;R;G;B
+    [(and (>= (length parts) 5)
+          (string=? (first parts) prefix)
+          (string=? (second parts) "2"))
+     (define r (string->number (third parts)))
+     (define g (string->number (fourth parts)))
+     (define b (string->number (fifth parts)))
+     (and r g b (color-rgb r g b))]
+    ;; Basic foreground 30-37, bright 90-97
+    [(and fg? (= (length parts) 1))
+     (define n (string->number code))
+     (cond
+       [(and n (>= n 30) (<= n 37)) (- n 30)]
+       [(and n (>= n 90) (<= n 97)) (+ (- n 90) 8)]
+       [else #f])]
+    ;; Basic background 40-47, bright 100-107
+    [(and (not fg?) (= (length parts) 1))
+     (define n (string->number code))
+     (cond
+       [(and n (>= n 40) (<= n 47)) (- n 40)]
+       [(and n (>= n 100) (<= n 107)) (+ (- n 100) 8)]
+       [else #f])]
+    [else #f]))
 
 ;; Build a style from inline ANSI codes on top of a base style
 (define (make-inline-style base-sty codes)
@@ -163,19 +200,22 @@
       [(string=? code "23") (set! italic? #f)]
       [(string=? code "24") (set! underline? #f)]
       [(string=? code "27") (set! reverse? #f)]
-      ;; Foreground colors 30-37, 90-97
+      ;; Foreground colors 30-37, 90-97, or extended 38;...
       [(and (>= (string-length code) 2)
             (let ([n (string->number code)])
               (and n (or (and (>= n 30) (<= n 37)) (and (>= n 90) (<= n 97))))))
-       (set! fg code)]
-      ;; Background colors 40-47, 100-107
+       (set! fg (parse-sgr-color code #t))]
+      [(string-prefix? code "38")
+       (define parsed (parse-sgr-color code #t))
+       (when parsed (set! fg parsed))]
+      ;; Background colors 40-47, 100-107, or extended 48;...
       [(and (>= (string-length code) 2)
             (let ([n (string->number code)])
               (and n (or (and (>= n 40) (<= n 47)) (and (>= n 100) (<= n 107))))))
-       (set! bg code)]
-      ;; Extended colors (38;5;N or 38;2;R;G;B)
-      [(string-prefix? code "38") (set! fg code)]
-      [(string-prefix? code "48") (set! bg code)]
+       (set! bg (parse-sgr-color code #f))]
+      [(string-prefix? code "48")
+       (define parsed (parse-sgr-color code #f))
+       (when parsed (set! bg parsed))]
       [else (void)]))
   (make-style #:foreground fg
               #:background bg
@@ -219,90 +259,48 @@
                  #:faint (or (style-faint? inner) (style-faint? outer)))]))
 
 ;;; ============================================================
-;;; Emit: convert cell buffer to ANSI string
+;;; Emit: convert cell buffer to ANSI string (for testing)
 ;;; ============================================================
 
 (define (cell-buffer->string buf)
   (define out (open-output-string))
-  (for ([row-idx (in-range (cell-buffer-h buf))])
-    (define row-vec (vector-ref (cell-buffer-rows buf) row-idx))
-    (define last-style #f)
-    (for ([col-idx (in-range (cell-buffer-w buf))])
-      (define c (vector-ref row-vec col-idx))
-      (define ch (cell-ch c))
-      (define sty (cell-style c))
-      ;; Skip wide-char placeholders
-      (unless (char=? ch #\nul)
-        ;; Style transition
-        (unless (equal? sty last-style)
-          (when last-style
-            (write-string (ansi-reset) out))
-          (when sty
-            (write-string (style->ansi-open sty) out))
-          (set! last-style sty))
-        (write-char ch out)))
-    ;; Reset at end of line
-    (when last-style
-      (write-string (ansi-reset) out)
-      (set! last-style #f))
-    ;; Clear any stale characters to the right from a previous wider frame
-    (write-string (format "~a[K" ESC) out)
-    ;; CR+LF between rows: in raw mode OPOST is off, so a bare
-    ;; newline only does LF (cursor moves down but stays at the
-    ;; same column).  We need CR to return to column 1.
-    (when (< row-idx (sub1 (cell-buffer-h buf)))
-      (write-string "\r\n" out)))
+  (display-ubuf! buf out #:linear #t #:only-dirty #f #:clear-dirty #f)
   (get-output-string out))
-
-;; Convert a style struct to an ANSI opening escape sequence
-(define (style->ansi-open sty)
-  (define codes '())
-  (when (style-bold? sty)
-    (set! codes (cons "1" codes)))
-  (when (style-faint? sty)
-    (set! codes (cons "2" codes)))
-  (when (style-italic? sty)
-    (set! codes (cons "3" codes)))
-  (when (style-underline? sty)
-    (set! codes (cons "4" codes)))
-  (when (style-blink? sty)
-    (set! codes (cons "5" codes)))
-  (when (style-reverse? sty)
-    (set! codes (cons "7" codes)))
-  (when (style-strikethrough? sty)
-    (set! codes (cons "9" codes)))
-  (when (style-foreground sty)
-    (set! codes (cons (style-foreground sty) codes)))
-  (when (style-background sty)
-    (set! codes (cons (style-background sty) codes)))
-  (if (null? codes)
-      ""
-      (format "~a[~am" ESC (string-join (reverse codes) ";"))))
 
 ;;; ============================================================
 ;;; Renderer
 ;;; ============================================================
 
-(struct renderer ([last-output #:mutable] [last-buffer #:mutable] output-stream) #:transparent)
+(struct renderer ([buffer #:mutable] [width #:mutable] [height #:mutable]
+                  output-stream [last-string-output #:mutable])
+  #:transparent)
 
 (define (make-renderer [output-stream (current-output-port)])
-  (renderer "" #f output-stream))
+  (renderer #f 0 0 output-stream ""))
 
 ;; Render an image to the terminal
 (define (render-image! r img)
   (define w (image-w img))
   (define h (image-h img))
-  (define buf (make-cell-buffer w h))
+  ;; Reallocate buffer if size changed
+  (define buf
+    (if (and (renderer-buffer r)
+             (= w (renderer-width r))
+             (= h (renderer-height r)))
+        (let ([b (renderer-buffer r)])
+          (ubuf-clear! b)
+          b)
+        (let ([b (make-ubuf w h)])
+          (set-renderer-buffer! r b)
+          (set-renderer-width! r w)
+          (set-renderer-height! r h)
+          b)))
   (paint! buf img 0 0)
-  (define new-output (cell-buffer->string buf))
-  (unless (string=? new-output (renderer-last-output r))
-    (set-renderer-last-output! r new-output)
-    (set-renderer-last-buffer! r buf)
-    (define stream (renderer-output-stream r))
-    (move-cursor-home stream)
-    (display new-output stream)
-    (clear-to-end-of-screen stream)
-    (flush-output stream)))
+  (define stream (renderer-output-stream r))
+  (move-cursor-home stream)
+  (display-ubuf! buf stream #:linear #t #:only-dirty #f #:clear-dirty #f)
+  (clear-to-end-of-screen stream)
+  (flush-output stream))
 
 ;; Render a view (image or string) to the terminal
 (define (render! r view)
@@ -310,8 +308,8 @@
     [(image? view) (render-image! r view)]
     [(string? view)
      ;; Legacy string path
-     (unless (string=? view (renderer-last-output r))
-       (set-renderer-last-output! r view)
+     (unless (string=? view (renderer-last-string-output r))
+       (set-renderer-last-string-output! r view)
        (define stream (renderer-output-stream r))
        (move-cursor-home stream)
        (display view stream)
@@ -334,10 +332,10 @@
 ;;; ============================================================
 
 (define (move-cursor-home [stream (current-output-port)])
-  (display (format "~a[H" ESC) stream))
+  (display (ansi:goto 1 1) stream))
 
 (define (clear-to-end-of-screen [stream (current-output-port)])
-  (display (format "~a[J" ESC) stream))
+  (display (ansi:clear-screen-from-cursor) stream))
 
 (define (move-cursor row col [stream (current-output-port)])
-  (display (format "~a[~a;~aH" ESC row col) stream))
+  (display (ansi:goto row col) stream))

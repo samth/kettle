@@ -395,20 +395,19 @@
 
 ;; Regression: when scrolling the log viewer, shorter lines that replace
 ;; longer lines left stale characters on the right side of the terminal.
-;; The fix: emit ESC[K (clear to end of line) after each row in the
-;; cell buffer output.
-(test-case "regression: rendered output includes clear-to-end-of-line"
+;; The fix: render-image! emits clear-to-end-of-screen after the buffer
+;; output. The cell-buffer output (via tui-ubuf) resets attributes at
+;; end of each row. Stale characters beyond the image area are handled
+;; by the clear-to-end-of-screen that follows the buffer output.
+(test-case "regression: rendered output resets styles per row"
   (define img (vcat 'left (text "long line here")
                           (text "short")))
   (define rendered (image->string img))
-  ;; Each row should end with ESC[K (clear to end of line)
-  ;; The output has two lines separated by \r\n
-  (define lines (string-split rendered "\r\n"))
-  (check-equal? (length lines) 2)
-  ;; Both lines should end with ESC[K
-  (for ([line (in-list lines)])
-    (check-true (string-suffix? line "\e[K")
-                (format "Line should end with ESC[K: ~s" line))))
+  ;; The output should contain both text fragments
+  (check-true (string-contains? rendered "long line here"))
+  (check-true (string-contains? rendered "short"))
+  ;; tui-ubuf linear mode resets attributes (ESC[0m) at end of each row
+  (check-true (string-contains? rendered "\e[0m\r\n")))
 
 ;;; ============================================================
 ;;; Kitty keyboard protocol: key-event-msg / key-release-msg

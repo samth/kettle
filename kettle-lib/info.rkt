@@ -2,7 +2,7 @@
 
 (define collection 'multi)
 (define version "1.0.0")
-(define deps '("base"))
+(define deps '("base" "ansi" "tui-ubuf"))
 
 (define pkg-desc "implementation (no documentation) part of \"kettle\"")
 

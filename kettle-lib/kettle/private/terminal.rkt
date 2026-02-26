@@ -13,6 +13,7 @@
 
 (require racket/list
          (only-in '#%terminal terminal-init terminal-get-screen-size terminal-raw-mode)
+         (prefix-in ansi: ansi/ansi)
          "errors.rkt")
 
 (provide enter-raw-mode
@@ -37,8 +38,6 @@
          resume-terminal
          with-raw-terminal
          open-tty)
-
-(define ESC "\e")
 
 (define tty-port (make-parameter #f))
 (define terminal-initialized? (make-parameter #f))
@@ -106,66 +105,76 @@
     (cons (cdr size) (car size))))
 
 (define (set-terminal-title title)
-  (display (format "~a]0;~a\a" ESC title) (tty-output))
+  (display (ansi:xterm-set-icon-name-and-window-title title) (tty-output))
   (flush-output (tty-output)))
 
 (define (clear-screen [port (tty-output)])
-  (display (format "~a[2J~a[H" ESC ESC) port)
+  (display (string-append (ansi:clear-screen) (ansi:goto 1 1)) port)
   (flush-output port))
 
 (define (hide-cursor [port (tty-output)])
-  (display (format "~a[?25l" ESC) port)
+  (display (ansi:hide-cursor) port)
   (flush-output port))
 
 (define (show-cursor [port (tty-output)])
-  (display (format "~a[?25h" ESC) port)
+  (display (ansi:show-cursor) port)
   (flush-output port))
 
 (define (enter-alt-screen [port (tty-output)])
-  (display (format "~a[?1049h" ESC) port)
+  (display (ansi:set-mode ansi:save/restore-cursor-and-alternate-screen-buffer-pseudomode) port)
   (flush-output port))
 
 (define (exit-alt-screen [port (tty-output)])
-  (display (format "~a[?1049l" ESC) port)
+  (display (ansi:reset-mode ansi:save/restore-cursor-and-alternate-screen-buffer-pseudomode) port)
   (flush-output port))
 
 (define (enable-mouse-cell-motion [port (tty-output)])
-  (display (format "~a[?1002h~a[?1006h" ESC ESC) port)
+  (display (string-append (ansi:set-mode ansi:x11-button-event-mouse-tracking-mode)
+                          (ansi:set-mode ansi:x11-extended-mouse-tracking-mode))
+           port)
   (flush-output port))
 
 (define (enable-mouse-all-motion [port (tty-output)])
-  (display (format "~a[?1003h~a[?1006h" ESC ESC) port)
+  (display (string-append (ansi:set-mode ansi:x11-any-event-mouse-tracking-mode)
+                          (ansi:set-mode ansi:x11-extended-mouse-tracking-mode))
+           port)
   (flush-output port))
 
 (define (disable-mouse [port (tty-output)])
-  (display (format "~a[?1002l~a[?1003l~a[?1006l" ESC ESC ESC) port)
+  (display (string-append (ansi:reset-mode ansi:x11-button-event-mouse-tracking-mode)
+                          (ansi:reset-mode ansi:x11-any-event-mouse-tracking-mode)
+                          (ansi:reset-mode ansi:x11-extended-mouse-tracking-mode))
+           port)
   (flush-output port))
 
+;; Bracketed paste mode constant (not in ansi package)
+(define bracketed-paste-mode "?2004")
+
 (define (enable-bracketed-paste [port (tty-output)])
-  (display (format "~a[?2004h" ESC) port)
+  (display (ansi:set-mode bracketed-paste-mode) port)
   (flush-output port))
 
 (define (disable-bracketed-paste [port (tty-output)])
-  (display (format "~a[?2004l" ESC) port)
+  (display (ansi:reset-mode bracketed-paste-mode) port)
   (flush-output port))
 
 (define (enable-focus-events [port (tty-output)])
-  (display (format "~a[?1004h" ESC) port)
+  (display (ansi:set-mode ansi:x11-focus-event-mode) port)
   (flush-output port))
 
 (define (disable-focus-events [port (tty-output)])
-  (display (format "~a[?1004l" ESC) port)
+  (display (ansi:reset-mode ansi:x11-focus-event-mode) port)
   (flush-output port))
 
 ;; Kitty keyboard protocol: push enhanced mode
 ;; flags bitmask: 0x1=disambiguate, 0x2=event types, 0x4=alternate keys
 (define (enable-kitty-keyboard [port (tty-output)] #:flags [flags 3])
-  (display (format "~a[>~au" ESC flags) port)
+  (display (format "\x1b[>~au" flags) port)
   (flush-output port))
 
 ;; Kitty keyboard protocol: pop mode (restore previous)
 (define (disable-kitty-keyboard [port (tty-output)])
-  (display (format "~a[<u" ESC) port)
+  (display "\x1b[<u" port)
   (flush-output port))
 
 ;;; Suspend/resume support
