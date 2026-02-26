@@ -263,6 +263,31 @@
   (check-test-program-contains tp "Score: 0"))
 
 ;;; ============================================================
+;;; Log Viewer
+;;; ============================================================
+
+(test-case "log-viewer: header shows filename and line count"
+  (define content (string-join (for/list ([i (in-range 1 51)])
+                                 (format "Line ~a" i))
+                               "\n"))
+  (define lv (make-log-viewer-from-string content "myfile.log" #:width 80 #:height 24))
+  (define tp (make-test-program lv))
+  (check-test-program-contains tp "myfile.log")
+  (check-test-program-contains tp "50 lines"))
+
+(test-case "log-viewer: reverse style renders header with swapped colors"
+  (define content (string-join (for/list ([i (in-range 1 11)])
+                                 (format "Line ~a" i))
+                               "\n"))
+  (define lv (make-log-viewer-from-string content "test.log" #:width 40 #:height 12))
+  (define tp (make-test-program lv))
+  (define view-str (test-program-view-string tp))
+  ;; Header uses reverse style (bold + reverse)
+  ;; With default colors, reverse means fg=0 (black, SGR 30) and bg=7 (white, SGR 47)
+  (check-true (string-contains? view-str "30") "header should have reversed fg (30)")
+  (check-true (string-contains? view-str "47") "header should have reversed bg (47)"))
+
+;;; ============================================================
 ;;; Log Viewer Search
 ;;; ============================================================
 

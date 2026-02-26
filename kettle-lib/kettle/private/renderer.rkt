@@ -22,6 +22,11 @@
                   ubuf-display-only-dirty?
                   ubuf-display-clear-dirty?
                   ubuf-display-position)
+         (only-in tui/ubuf/ubuf-struct
+                  ubuf-stride ubuf-cells ubuf-outbuf
+                  ubuf-clip-x ubuf-clip-y ubuf-clip-w ubuf-clip-h)
+         (only-in tui/ubuf/vt-output
+                  display-ubuf-cells)
          "style.rkt"
          "image.rkt")
 
@@ -53,10 +58,14 @@
 
 ;; Write a single character with style into the ubuf
 (define (ubuf-set-styled! buf col row ch sty)
+  (define fg (or (and sty (style-foreground sty)) 7))
+  (define bg (or (and sty (style-background sty)) 0))
+  ;; ubuf doesn't support reverse directly; swap fg/bg ourselves
+  (define reverse? (and sty (style-reverse? sty)))
   (ubuf-putchar! buf col row
                  #:char ch
-                 #:fg (or (and sty (style-foreground sty)) 7)
-                 #:bg (or (and sty (style-background sty)) 0)
+                 #:fg (if reverse? bg fg)
+                 #:bg (if reverse? fg bg)
                  #:bold (and sty (style-bold? sty) #t)
                  #:italic (and sty (style-italic? sty) #t)
                  #:underline (if (and sty (style-underline? sty)) 'single #f)
@@ -298,7 +307,12 @@
   (paint! buf img 0 0)
   (define stream (renderer-output-stream r))
   (move-cursor-home stream)
-  (display-ubuf! buf stream #:linear #t #:only-dirty #f #:clear-dirty #f)
+  ;; Use display-ubuf-cells directly with last-newline? #f to avoid
+  ;; a trailing \r\n that would scroll the first row off screen.
+  (display-ubuf-cells (ubuf-stride buf) (ubuf-cells buf) (ubuf-outbuf buf)
+                      (ubuf-clip-x buf) (ubuf-clip-y buf)
+                      (ubuf-clip-w buf) (ubuf-clip-h buf)
+                      stream #t 0 0 #f #f #f)
   (clear-to-end-of-screen stream)
   (flush-output stream))
 

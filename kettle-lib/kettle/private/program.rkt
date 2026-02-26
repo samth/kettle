@@ -157,7 +157,7 @@
 
        ;; Set up tty streams
        (set-program-tty-stream! p tty)
-       (set-program-renderer*! p (renderer "" #f tty-out))
+       (set-program-renderer*! p (make-renderer tty-out))
 
        ;; Start input thread
        (define input-thd
