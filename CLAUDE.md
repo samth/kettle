@@ -49,20 +49,18 @@ raco setup --pkgs kettle-doc
 
 ## Testing
 
-Three tiers of tests in `kettle-lib/kettle/tests/`:
-- **Unit tests** -- test individual modules directly
+All tests live in `kettle-test/kettle/tests/`:
+- **Unit tests** (`test-input.rkt`, `test-renderer.rkt`) -- test individual modules directly
 - **Integration tests** (`test-integration.rkt`) -- headless Kettle loop via `kettle/test`
 - **E2E tests** (`test-e2e.rkt`) -- full programs in tmux via `kettle/test-tmux`
+- **Benchmarks** (`bench-render.rkt`, `bench-log-viewer.rkt`) -- rendering performance
 
 ```bash
 # Run all tests
-raco test -y kettle-lib/kettle/tests/
-
-# Run only unit + integration (no tmux needed)
-raco test -y kettle-lib/kettle/tests/ --exclude test-e2e.rkt
+raco test -y kettle-test/kettle/tests/
 
 # Run e2e only (requires tmux)
-raco test -y kettle-lib/kettle/tests/test-e2e.rkt
+raco test -y kettle-test/kettle/tests/test-e2e.rkt
 ```
 
 ## Manual Testing with tmux

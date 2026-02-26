@@ -321,4 +321,6 @@
          define-kettle-program
 
          ;; === Renderer (for testing / advanced use) ===
-         cell-buffer->string)
+         make-cell-buffer
+         cell-buffer->string
+         paint!)

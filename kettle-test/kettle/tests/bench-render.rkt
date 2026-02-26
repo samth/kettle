@@ -5,18 +5,13 @@
 ;; for increasingly complex image trees to verify the system can sustain
 ;; at least 15 fps (66ms per frame) for typical TUI layouts.
 ;;
-;; Run: racket -y kettle-lib/kettle/tests/bench-render.rkt
+;; Run: racket -y kettle-test/kettle/tests/bench-render.rkt
 
 (require racket/format
          racket/string
          racket/list
-         kettle/image
-         kettle/style
-         kettle/border
-         (prefix-in vp: kettle/components/viewport)
-         (only-in "../private/renderer.rkt"
-                  make-cell-buffer paint! cell-buffer->string)
-         "../private/protocol.rkt")
+         kettle
+         (prefix-in vp: kettle/components/viewport))
 
 ;; Measure how long body takes in milliseconds, return (cons result ms)
 (define-syntax-rule (time-ms body ...)
