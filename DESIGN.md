@@ -422,6 +422,84 @@ Everything else (alternate screen, cursor visibility, mouse tracking,
 bracketed paste, focus events, Kitty keyboard protocol) is done with
 ANSI escape sequences written to `/dev/tty`.
 
+### Grapheme cluster support
+
+Terminal text processing must deal with Unicode grapheme clusters:
+sequences of codepoints that render as a single glyph. Common cases
+include combining marks (e + \u0301 = é), ZWJ emoji sequences
+(👨‍👩‍👧‍👦 is 7 codepoints but one 2-column glyph), and skin-tone
+modifiers (👋🏽 is 2 codepoints but one 2-column glyph).
+
+Kettle uses Racket's `char-grapheme-step` (a built-in based on the
+Unicode Grapheme Cluster Break algorithm) to iterate text by cluster.
+The function maintains a small integer state machine and returns
+whether a boundary exists before the current codepoint. Only the first
+codepoint of each cluster contributes its `char-display-width`; all
+subsequent codepoints (combining marks, ZWJ, modifiers) contribute
+zero width.
+
+This is integrated into three places:
+
+- **`visible-length`** (width measurement): iterates with
+  `char-grapheme-step`, counting width only at cluster boundaries.
+- **`truncate-text`** (ANSI-aware truncation): tracks cluster
+  boundaries so truncation never splits a grapheme cluster. The
+  cut point is always at a cluster boundary.
+- **`paint-text!`** (cell buffer painting): only the base codepoint
+  of each cluster is painted into the cell buffer; continuation
+  codepoints are skipped.
+
+The result matches JS `string-width` for all tested fixtures
+(combining marks, ZWJ families, skin-tone emoji). Without grapheme
+support, Kettle over-counted widths by 20-40% on these inputs.
+
+### ANSI text processing performance
+
+The JS TUI ecosystem has two key npm packages for ANSI-aware text
+operations: `string-width` (display width measurement, used by
+`cli-truncate` and `slice-ansi`) and `slice-ansi` (ANSI-aware
+substring by display width). Bun provides a native `Bun.sliceAnsi`
+as an optimized replacement for both.
+
+Kettle's equivalent operations (`visible-length`, `truncate-text`,
+and the `paint-text!` renderer path) were benchmarked against these
+using the same fixture tiers as Bun's `slice-ansi.mjs` benchmark:
+pure ASCII, ASCII + ANSI codes, CJK, and grapheme clustering.
+
+**Width measurement** (`visible-length` vs `string-width`): Kettle is
+competitive with Node on short strings (faster on strings under ~100
+bytes), ~1.4x slower on longer strings, and ~3-4x slower than Bun.
+The per-character overhead comes from Racket's `string-ref` +
+`char-grapheme-step` + East Asian Width table lookup vs V8/JSC's
+optimized native paths.
+
+**Truncation** (`truncate-text` vs `cli-truncate`): Kettle is 3-21x
+faster than Node and 2-8x faster than Bun on strings that actually
+get truncated. The advantage comes from early termination: Kettle
+stops walking as soon as the width budget is exhausted, while
+`cli-truncate` calls `stringWidth()` on the full string first and
+then slices. For the no-cut case (string fits without truncation),
+Kettle returns the original string object directly without copying,
+staying within 1.3x of Node.
+
+The `truncate-text` implementation avoids string port overhead
+entirely: it tracks string positions during the walk and uses
+`substring` if truncation is needed. If the string fits, it returns
+the original string without allocation.
+
+**Cell buffer painting** (`paint-text!`): This is the TUI rendering
+hot path with no direct JS equivalent (JS frameworks emit strings;
+Kettle fills a 2D cell grid). Two optimizations keep this fast:
+
+1. Inline ANSI codes are accumulated with `cons` (O(1)) rather than
+   `append` (O(n)), then reversed only when the effective style is
+   needed.
+2. The computed effective style is cached and only recomputed when
+   ANSI codes actually change. Previously, `make-inline-style` was
+   called for every visible character even when the codes hadn't
+   changed since the last ANSI escape. This gave a ~9x speedup on
+   ANSI-heavy strings.
+
 ---
 
 ## What Came from Where: Summary
