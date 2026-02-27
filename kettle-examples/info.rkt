@@ -2,7 +2,7 @@
 
 (define collection 'multi)
 (define version "1.0")
-(define deps '("base" "kettle-lib"))
+(define deps '("base" "kettle-lib" "kettle-components"))
 (define build-deps '("at-exp-lib"))
 
 (define pkg-desc "examples for \"kettle\"")
