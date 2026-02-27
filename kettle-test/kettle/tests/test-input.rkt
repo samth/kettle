@@ -308,3 +308,81 @@
 (test-case "legacy: focus out (ESC[O)"
   (define evt (parse-input "\e[O"))
   (check-true (focus-out-msg? evt)))
+
+;;; ============================================================
+;;; Standalone Escape key
+;;; ============================================================
+
+(test-case "standalone escape: bare 0x1b produces escape key-msg"
+  (define evt (parse-input "\x1b"))
+  (check-true (key-msg? evt))
+  (check-equal? (key-msg-key evt) 'escape)
+  (check-false (key-msg-alt evt))
+  (check-false (key-msg-ctrl evt)))
+
+(test-case "standalone escape: ESC followed by CSI is not standalone"
+  ;; ESC [ A should produce arrow-up, not standalone escape
+  (define evt (parse-input "\e[A"))
+  (check-true (key-msg? evt))
+  (check-equal? (key-msg-key evt) 'up))
+
+;;; ============================================================
+;;; Mouse event coordinates
+;;; ============================================================
+
+(test-case "mouse: SGR press at (1,1) produces 0-based (0,0)"
+  ;; SGR format: ESC[<0;col;rowM — coordinates are 1-based
+  (define evt (parse-input "\e[<0;1;1M"))
+  (check-true (mouse-press-event? evt))
+  (check-equal? (mouse-event-x evt) 0)
+  (check-equal? (mouse-event-y evt) 0)
+  (check-equal? (mouse-button-event-button evt) 'left))
+
+(test-case "mouse: SGR press at (10,5) produces 0-based (9,4)"
+  (define evt (parse-input "\e[<0;10;5M"))
+  (check-true (mouse-press-event? evt))
+  (check-equal? (mouse-event-x evt) 9)
+  (check-equal? (mouse-event-y evt) 4))
+
+(test-case "mouse: SGR release"
+  (define evt (parse-input "\e[<0;3;7m"))
+  (check-true (mouse-release-event? evt))
+  (check-equal? (mouse-event-x evt) 2)
+  (check-equal? (mouse-event-y evt) 6))
+
+(test-case "mouse: SGR middle button"
+  (define evt (parse-input "\e[<1;1;1M"))
+  (check-true (mouse-press-event? evt))
+  (check-equal? (mouse-button-event-button evt) 'middle))
+
+(test-case "mouse: SGR right button"
+  (define evt (parse-input "\e[<2;1;1M"))
+  (check-true (mouse-press-event? evt))
+  (check-equal? (mouse-button-event-button evt) 'right))
+
+(test-case "mouse: SGR scroll up"
+  (define evt (parse-input "\e[<64;15;20M"))
+  (check-true (mouse-scroll-event? evt))
+  (check-equal? (mouse-event-x evt) 14)
+  (check-equal? (mouse-event-y evt) 19)
+  (check-equal? (mouse-scroll-event-direction evt) 'up))
+
+(test-case "mouse: SGR scroll down"
+  (define evt (parse-input "\e[<65;15;20M"))
+  (check-true (mouse-scroll-event? evt))
+  (check-equal? (mouse-scroll-event-direction evt) 'down))
+
+(test-case "mouse: SGR motion (drag)"
+  ;; button 0 + 32 = 32 for motion with left button held
+  (define evt (parse-input "\e[<32;10;10M"))
+  (check-true (mouse-drag-event? evt))
+  (check-equal? (mouse-event-x evt) 9)
+  (check-equal? (mouse-event-y evt) 9)
+  (check-equal? (mouse-button-event-button evt) 'left))
+
+(test-case "mouse: SGR motion (no button)"
+  ;; button 3 + 32 = 35 for motion with no button held
+  (define evt (parse-input "\e[<35;10;10M"))
+  (check-true (mouse-move-event? evt))
+  (check-equal? (mouse-event-x evt) 9)
+  (check-equal? (mouse-event-y evt) 9))

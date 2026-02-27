@@ -39,7 +39,7 @@
                      (for/fold ([z z])
                                ([btn (in-list buttons)]
                                 [i (in-naturals)])
-                       (define x (+ 1 (* i (+ button-width button-spacing))))
+                       (define x (* i (+ button-width button-spacing)))
                        (zm:zone-register z btn x buttons-row button-width 1)))])
   #:update (lambda (self msg)
     (match msg

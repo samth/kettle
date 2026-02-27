@@ -223,11 +223,13 @@
           (handle-messages-batch p messages)))
       (loop))))
 
-;; Combine consecutive scroll events in the same direction.
-(define (coalesce-scroll-events messages)
+;; Coalesce consecutive mouse events in a batch:
+;; - Consecutive scroll events in the same direction are merged (count incremented).
+;; - Consecutive move events are collapsed to just the last one.
+(define (coalesce-mouse-events messages)
   (if (null? messages)
       '()
-      (let loop ([msgs messages] [result '()] [prev-scroll #f])
+      (let loop ([msgs messages] [result '()] [prev-scroll #f] [prev-move #f])
         (cond
           [(null? msgs)
            (reverse result)]
@@ -247,10 +249,15 @@
                                   (mouse-event-ctrl prev-scroll)
                                   dir
                                   (add1 (mouse-scroll-event-count prev-scroll)))])
-                    (loop rest-msgs (cons updated (cdr result)) updated))
-                  (loop rest-msgs (cons m result) m))]
+                    (loop rest-msgs (cons updated (cdr result)) updated #f))
+                  (loop rest-msgs (cons m result) m #f))]
+             [(mouse-move-event? m)
+              (if prev-move
+                  ;; Replace the previous move event with this one
+                  (loop rest-msgs (cons m (cdr result)) #f m)
+                  (loop rest-msgs (cons m result) #f m))]
              [else
-              (loop rest-msgs (cons m result) #f)])]))))
+              (loop rest-msgs (cons m result) #f #f)])]))))
 
 ;; Evaluate the model's subscriptions and start/stop as needed.
 (define (sync-subscriptions! p)
@@ -283,7 +290,7 @@
 
 ;; Process multiple messages, rendering only once at the end.
 (define (handle-messages-batch p messages)
-  (define coalesced (coalesce-scroll-events messages))
+  (define coalesced (coalesce-mouse-events messages))
   (define should-render #f)
   (define pending-cmds '())
 

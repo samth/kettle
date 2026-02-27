@@ -73,7 +73,8 @@
                              (format "~a. ~a" (add1 i) item))))
              (list ""
                    (styled (make-style #:foreground fg-bright-black)
-                           "  up/k up • down/j down • enter select • q quit"))))]))
+                           "  up/k up • down/j down • enter select • q quit")
+                   "")))]))
 
 (module+ main
   (run (list-state initial-items 0 #f #f)

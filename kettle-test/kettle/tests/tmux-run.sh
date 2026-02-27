@@ -4,11 +4,19 @@
 # Usage:
 #   ./tmux-run.sh <racket-file> [wait-secs] [keys-to-send] [post-key-wait] [width] [height]
 #
+# Keys syntax:
+#   Space-separated tokens. Most are passed directly to tmux send-keys.
+#   Special tokens:
+#     @mouse:col,row      -- send SGR mouse press+release at (col,row) (1-based)
+#     @esc                 -- send a raw standalone Escape byte (0x1b)
+#
 # Examples:
 #   ./tmux-run.sh /tmp/test-counter-noalt.rkt 20
 #   ./tmux-run.sh /tmp/test-counter-noalt.rkt 20 "+" 2
 #   ./tmux-run.sh /tmp/test-byte-ready.rkt 8 "x" 2
 #   ./tmux-run.sh my-program.rkt 3 "q" 1 120 40
+#   ./tmux-run.sh zones.rkt 5 "@mouse:5,5" 1
+#   ./tmux-run.sh datepicker.rkt 5 "Enter @esc" 1
 #
 # Output:
 #   Prints captured pane contents to stdout.
@@ -62,10 +70,39 @@ sleep "$WAIT"
 echo "=== INITIAL CAPTURE ===" >&2
 capture_pane
 
+# Send a single key token to the tmux session
+send_token() {
+    local tok="$1"
+    case "$tok" in
+        @mouse:*)
+            # @mouse:col,row -- SGR mouse press+release (1-based screen coords)
+            local coords="${tok#@mouse:}"
+            local col="${coords%,*}"
+            local row="${coords#*,}"
+            printf -v press '\e[<0;%s;%sM' "$col" "$row"
+            printf -v release '\e[<0;%s;%sm' "$col" "$row"
+            tmux send-keys -t "$SESSION" -l "$press"
+            sleep 0.2
+            tmux send-keys -t "$SESSION" -l "$release"
+            ;;
+        @esc)
+            # Raw standalone Escape byte
+            printf -v esc '\x1b'
+            tmux send-keys -t "$SESSION" -l "$esc"
+            ;;
+        *)
+            tmux send-keys -t "$SESSION" "$tok"
+            ;;
+    esac
+}
+
 # Send keys if provided
 if [[ -n "$KEYS" ]]; then
     echo "Sending keys: $KEYS" >&2
-    tmux send-keys -t "$SESSION" "$KEYS"
+    for tok in $KEYS; do
+        send_token "$tok"
+        sleep 0.3
+    done
     sleep "$POST_KEY_WAIT"
     echo "=== AFTER KEYS ===" >&2
     capture_pane

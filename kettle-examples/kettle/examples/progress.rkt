@@ -30,7 +30,8 @@
         ""
         (hcat 'top (text "  ") (view state))
         ""
-        "  Press any key to quit"))
+        "  Press any key to quit"
+        ""))
 
 (module+ main
   (run (pb:make-progress #:width 40 #:percent 0.0)

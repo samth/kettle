@@ -36,7 +36,8 @@
   (vcat 'left
         (text (format "Hi. This program will exit in ~a seconds." secs))
         ""
-        "To quit sooner press q or ctrl-c..."))
+        "To quit sooner press q or ctrl-c..."
+        ""))
 
 (module+ main
   (run 5

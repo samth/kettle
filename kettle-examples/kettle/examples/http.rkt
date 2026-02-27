@@ -62,6 +62,7 @@
              (hcat 'top (text (format "Checking ~a ... " target-url))
                         (styled (make-style #:foreground fg-red)
                                 (format "error: ~a" (http-demo-error-msg self))))
+             ""
              "")]
       [(http-demo-status self)
        (define code (http-demo-status self))
@@ -76,11 +77,13 @@
              (hcat 'top (text (format "Checking ~a ... " target-url))
                         (styled (make-style #:foreground fg-bright-green #:bold #t)
                                 (format "~a ~a" code status-text)))
+             ""
              "")]
       [else
        (vcat 'left
              ""
              (text (format "Checking ~a ..." target-url))
+             ""
              "")])))
 
 (module+ main

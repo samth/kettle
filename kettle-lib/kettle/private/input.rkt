@@ -79,8 +79,9 @@
 (define (ansi-mouse->kettle-msg evt)
   (define type (ansi:mouse-event-type evt))
   (define btn (ansi:mouse-event-button evt))
-  (define row (ansi:mouse-event-row evt))
-  (define col (ansi:mouse-event-column evt))
+  ;; Terminal coordinates are 1-based; convert to 0-based image coordinates.
+  (define row (sub1 (ansi:mouse-event-row evt)))
+  (define col (sub1 (ansi:mouse-event-column evt)))
   (define mods (ansi:mouse-event-modifiers evt))
   (define shift? (set-member? mods 'shift))
   (define alt? (set-member? mods 'meta))

@@ -96,7 +96,8 @@
                       (styled (make-style #:foreground fg-bright-green #:bold #t)
                               (input-state-buffer st)))
            ""
-           "Press any key to quit.")]
+           "Press any key to quit."
+           "")]
     [else
      (define buf (input-state-buffer st))
      (define pos (input-state-cursor st))
@@ -119,7 +120,8 @@
                  (text after))
            ""
            (styled (make-style #:foreground fg-bright-black)
-                   "  enter submit • arrows/home/end move • backspace delete • q quit"))]))
+                   "  enter submit • arrows/home/end move • backspace delete • q quit")
+           "")]))
 
 (module+ main
   (run (input-state "" 0 #f)

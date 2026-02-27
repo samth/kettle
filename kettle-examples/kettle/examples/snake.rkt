@@ -77,7 +77,7 @@
      [_ self]))
  #:subscriptions (lambda (self)
                    (if (eq? (snake-game-state self) 'playing)
-                       (list (every 0.15 tick-msg))
+                       (list (every 0.08 tick-msg))
                        '()))
  #:view (lambda (self)
           (define w (snake-game-width self))

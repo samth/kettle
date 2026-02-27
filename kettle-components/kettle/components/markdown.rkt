@@ -101,6 +101,28 @@
    "-"
    #f))
 
+;;; ---------- Typographic entities ----------
+
+;; The markdown/parse library produces bare symbols for HTML entities
+;; (e.g., lsquo for &lsquo;).  Map them to their Unicode characters.
+(define (entity-symbol->string sym)
+  (case sym
+    [(lsquo) "\u2018"]
+    [(rsquo) "\u2019"]
+    [(ldquo) "\u201C"]
+    [(rdquo) "\u201D"]
+    [(ndash) "\u2013"]
+    [(mdash) "\u2014"]
+    [(hellip) "\u2026"]
+    [(amp) "&"]
+    [(lt) "<"]
+    [(gt) ">"]
+    [(nbsp) "\u00A0"]
+    [(copy) "\u00A9"]
+    [(reg) "\u00AE"]
+    [(trade) "\u2122"]
+    [else (format "~a" sym)]))
+
 ;;; ---------- Inline rendering ----------
 
 ;; Render a list of inline xexpr children to a styled string.
@@ -145,6 +167,8 @@
     ;; Pass through content of unknown inline wrappers
     [`(sup ,_ . ,children) (render-inlines ms children)]
     [`(span ,_ . ,children) (render-inlines ms children)]
+    ;; Typographic entities produced by markdown/parse
+    [(? symbol? sym) (entity-symbol->string sym)]
     [_ ""]))
 
 ;;; ---------- Block rendering ----------

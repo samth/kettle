@@ -101,13 +101,13 @@
                        (sleep 0.15)
                        (check-tmux-contains sc "Count: 3"))
                      (test-case "e2e counter: Alt+F toggles FPS display"
-                       ;; Send Alt+F (Escape then f in tmux)
-                       (tmux-send-keys sc "Escape")
-                       (send+wait sc "f" "fps" #:timeout 3)
+                       ;; Send Alt+F as raw bytes (ESC + f) atomically so
+                       ;; the parser sees both bytes together as Alt+key.
+                       (tmux-send-raw sc "\x1bf")
+                       (tmux-wait-for sc "fps" #:timeout 3)
                        (check-tmux-contains sc "fps")
                        ;; Toggle off
-                       (tmux-send-keys sc "Escape")
-                       (tmux-send-keys sc "f")
+                       (tmux-send-raw sc "\x1bf")
                        (sleep 0.3)
                        (check-tmux-not-contains sc "fps")
                        ;; Counter state should be unaffected
