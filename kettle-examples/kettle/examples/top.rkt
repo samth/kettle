@@ -1,6 +1,13 @@
 #lang racket/base
 
 ;; top.rkt -- A top/htop-style process viewer.
+;; Original Kettle example (no cl-tuition counterpart).
+;;
+;; Showcases Kettle's suitability for real system tools: reads /proc directly for
+;; process, CPU, memory, and swap data. Uses on-resize subscription, mouse scroll
+;; events, styled image composition for the multi-section htop-style layout, and
+;; crop for viewport-like process row scrolling within a fixed terminal height.
+;;
 ;; Demonstrates subscriptions (timers, resize), styled tables, sorting,
 ;; and responsive layout with flex images.
 

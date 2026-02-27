@@ -1,6 +1,19 @@
 #lang racket/base
 
 ;; stopwatch.rkt -- Attractive stopwatch with ASCII-art digits.
+;; Adapted from cl-tuition examples/stopwatch.lisp
+;; https://github.com/atgreen/cl-tuition/blob/master/examples/stopwatch.lisp
+;;
+;; Key differences from cl-tuition:
+;; - Uses `define-kettle-program` macro (generates struct + gen:kettle-model)
+;;   instead of CLOS defclass + defmethod + manual tick threading.
+;; - Elm-style subscriptions (every 0.01 tick-msg) replace manual sleep-and-post
+;;   command loops; the runtime manages background tick threads automatically.
+;; - Immutable struct-copy updates replace CLOS setf mutation.
+;; - Adds ASCII-art big-digit rendering and lap recording not in the original.
+;; - View builds an algebraic image tree (vcat, hcat, styled) that the cell-buffer
+;;   renderer diffs into minimal ANSI output, vs. cl-tuition's format-string view.
+;;
 ;; Demonstrates define-kettle-program, subscriptions (every), tick-based updates,
 ;; lap recording, and styled image rendering.
 

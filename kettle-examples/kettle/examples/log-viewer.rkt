@@ -1,6 +1,14 @@
 #lang racket/base
 
 ;; log-viewer.rkt -- High-performance log file viewer.
+;; Original Kettle example (no cl-tuition counterpart).
+;;
+;; Demonstrates building a custom high-performance scrollable viewer without the
+;; viewport component: uses vectors for O(1) line access and renders only the
+;; visible window. Includes incremental search (/) with binary-search match
+;; navigation (n/N) and highlighted results. Shows that Kettle's gen:kettle-model
+;; protocol imposes no overhead on domain-specific data structures.
+;;
 ;; Optimized for large files (100K+ lines) with O(viewport-height) scroll operations.
 ;; Uses vectors for O(1) line access instead of lists.
 ;; Usage: racket log-viewer.rkt <filename>

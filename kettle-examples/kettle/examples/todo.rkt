@@ -1,6 +1,17 @@
 #lang racket/base
 
 ;; todo.rkt -- Todo list with component composition.
+;; Adapted from cl-tuition examples/list.lisp
+;; https://github.com/atgreen/cl-tuition/blob/master/examples/list.lisp
+;;
+;; Key differences from cl-tuition:
+;; - Composes reusable textinput and list-view components via gen:kettle-model
+;;   delegation, whereas cl-tuition's list.lisp implements selection by hand.
+;; - Modal design (insert vs. navigate) with Tab switching demonstrates Kettle's
+;;   component-composition pattern: extract-update-result + struct-copy delegation.
+;; - Components are first-class gen:kettle-model values embedded in the parent
+;;   struct, unlike cl-tuition which manages component state with CLOS slots.
+;;
 ;; Demonstrates gen:kettle-model, delegate, textinput + list-view, struct-copy.
 
 (require racket/list
