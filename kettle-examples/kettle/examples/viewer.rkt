@@ -1,6 +1,13 @@
 #lang racket/base
 
 ;; viewer.rkt -- Scrollable text viewer.
+;; Original Kettle example (no cl-tuition counterpart).
+;;
+;; Demonstrates Kettle's viewport component for scrollable content with
+;; gen:kettle-model delegation: the file-viewer struct wraps a viewport and
+;; delegates key/resize messages to it via extract-update-result. Styled headers
+;; and footers show how to compose component views with surrounding chrome.
+;;
 ;; Demonstrates the viewport component, command-line args, styled borders.
 ;; Usage: racket viewer.rkt <filename>
 ;; Or: some-command | racket viewer.rkt

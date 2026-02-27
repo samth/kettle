@@ -1,6 +1,13 @@
 #lang racket/base
 
 ;; snake.rkt -- Classic snake game.
+;; Original Kettle example (no cl-tuition counterpart).
+;;
+;; Demonstrates capabilities beyond cl-tuition's example set: real-time game loop
+;; via Elm-style subscriptions (every 0.15 tick-msg), window-size-msg for
+;; responsive playfield sizing, and define-kettle-program with #:init for
+;; one-time random food placement.
+;;
 ;; Demonstrates subscriptions (every), collision detection, random food placement.
 ;; Arrow keys or hjkl to move, r to restart, q to quit.
 
