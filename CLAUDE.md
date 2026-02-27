@@ -80,6 +80,14 @@ This is useful for testing TUI programs that need a real terminal (e.g. Kitty ke
 
 **Important:** Always use `tmux-run.sh` for manual tmux testing. Do not construct raw tmux commands directly.
 
+## Documentation Files
+
+These documents should be kept in sync with code changes:
+
+- **[IMPLEMENTATION.md](IMPLEMENTATION.md)** - Rendering pipeline, event loop internals, module dependency graph, terminal control, input parsing, subscription system. Update when changing the architecture of any core module.
+- **[DESIGN.md](DESIGN.md)** - Design rationale, sources of inspiration, what was borrowed from which library. Update when adding new architectural patterns or significantly changing existing ones.
+- **[UPSTREAM_IMPROVEMENTS.md](UPSTREAM_IMPROVEMENTS.md)** - Issues and workarounds in `ansi` and `tui-ubuf` dependencies. Update when adding new workarounds or when upstream fixes land.
+
 ## License
 
 MIT
