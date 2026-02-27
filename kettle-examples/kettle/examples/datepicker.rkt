@@ -10,7 +10,7 @@
 ;;   datepicker class with mutable slots.
 ;; - Delegation uses extract-update-result instead of multiple-value-bind on
 ;;   CLOS update-message return values.
-;; - Date display uses Racket's ~a formatting instead of CL's decode-universal-time.
+;; - Date display uses gregor date accessors instead of CL's decode-universal-time.
 ;; - The component uses struct-copy for navigation state changes instead of setf.
 ;;
 ;; Navigate with arrows/hjkl, [/] for months, {/} for years.
@@ -19,6 +19,7 @@
 
 (require racket/match
          racket/format
+         (only-in gregor ->year ->month ->day)
          kettle/program
          kettle/image
          kettle/style
@@ -36,10 +37,10 @@
          (struct-copy datepicker-demo self [picker new-picker])]))
   #:view (lambda (self)
     (define picker (datepicker-demo-picker self))
-    (define-values (sy sm sd) (dp:datepicker-selected-date picker))
+    (define sel (dp:datepicker-selected-date picker))
     (define selected-str
-      (if sy
-          (format "Selected: ~a/~a/~a" sm sd sy)
+      (if sel
+          (format "Selected: ~a/~a/~a" (->month sel) (->day sel) (->year sel))
           "No date selected"))
     (vcat 'left
           ""

@@ -7,14 +7,14 @@
 ;; Terminal markdown renderer inspired by Charmbracelet's Glamour.
 ;; Ported from cl-tuition's markdown renderer (tuition/markdown.lisp).
 ;;
-;; Renders markdown to styled text suitable for display in a terminal.
-;; Supports headers, bold, italic, inline code, code blocks, lists,
-;; blockquotes, horizontal rules, and links.
+;; Uses the `markdown` package for parsing and renders the resulting
+;; xexprs to styled terminal text.
 
 (require racket/match
          racket/string
          racket/format
          racket/list
+         markdown/parse
          kettle/style)
 
 (provide (struct-out markdown-style)
@@ -101,61 +101,193 @@
    "-"
    #f))
 
-;;; ---------- Inline parsing ----------
+;;; ---------- Inline rendering ----------
 
-;; Parse and render inline markdown elements.
-;; Returns a styled string.
-(define (parse-inline ms text)
-  (define (go str)
-    (cond
-      [(string=? str "") ""]
-      ;; Bold: **text**
-      [(regexp-match #rx"^(.*)\\*\\*(.+?)\\*\\*(.*)" str)
-       => (lambda (m)
-            (string-append (go (list-ref m 1))
-                           (render-inline-styled (markdown-style-bold-color ms) #t #f
-                                                 (list-ref m 2))
-                           (go (list-ref m 3))))]
-      ;; Italic: *text*
-      [(regexp-match #rx"^(.*)\\*(.+?)\\*(.*)" str)
-       => (lambda (m)
-            (string-append (go (list-ref m 1))
-                           (render-inline-styled (markdown-style-italic-color ms) #f #t
-                                                 (list-ref m 2))
-                           (go (list-ref m 3))))]
-      ;; Inline code: `text`
-      [(regexp-match #rx"^(.*)`(.+?)`(.*)" str)
-       => (lambda (m)
-            (string-append (go (list-ref m 1))
-                           (render-inline-styled (markdown-style-code-color ms) #f #f
-                                                 (list-ref m 2))
-                           (go (list-ref m 3))))]
-      ;; Links: [text](url)
-      [(regexp-match #rx"^(.*)\\[(.+?)\\]\\((.+?)\\)(.*)" str)
-       => (lambda (m)
-            (define link-text (list-ref m 2))
-            (define link-style
-              (make-style #:foreground (markdown-style-link-color ms)
-                          #:underline (markdown-style-link-underline? ms)))
-            (string-append (go (list-ref m 1))
-                           (if (markdown-style-link-color ms)
-                               (render-styled link-style link-text)
-                               link-text)
-                           (go (list-ref m 4))))]
-      [else str]))
-  (go text))
+;; Render a list of inline xexpr children to a styled string.
+(define (render-inlines ms children)
+  (apply string-append
+    (for/list ([c (in-list children)])
+      (render-inline ms c))))
 
-(define (render-inline-styled color bold? italic? text)
-  (if color
-      (render-styled (make-style #:foreground color #:bold bold? #:italic italic?)
-                     text)
-      (if bold?
-          (render-styled (make-style #:bold #t) text)
-          (if italic?
-              (render-styled (make-style #:italic #t) text)
-              text))))
+(define (render-inline ms x)
+  (match x
+    [(? string? s) s]
+    [`(strong ,_ . ,children)
+     (define text (render-inlines ms children))
+     (define color (markdown-style-bold-color ms))
+     (if color
+         (render-styled (make-style #:foreground color #:bold #t) text)
+         (render-styled (make-style #:bold #t) text))]
+    [`(em ,_ . ,children)
+     (define text (render-inlines ms children))
+     (define color (markdown-style-italic-color ms))
+     (if color
+         (render-styled (make-style #:foreground color #:italic #t) text)
+         (render-styled (make-style #:italic #t) text))]
+    [`(code ,_ . ,children)
+     (define text (render-inlines ms children))
+     (define color (markdown-style-code-color ms))
+     (if color
+         (render-styled (make-style #:foreground color) text)
+         text)]
+    [`(a ,attrs . ,children)
+     (define link-text (render-inlines ms children))
+     (define color (markdown-style-link-color ms))
+     (if color
+         (render-styled (make-style #:foreground color
+                                    #:underline (markdown-style-link-underline? ms))
+                        link-text)
+         link-text)]
+    [`(br . ,_) "\n"]
+    [`(img ,attrs . ,_)
+     (define alt-pair (assoc 'alt attrs))
+     (if alt-pair (cadr alt-pair) "[image]")]
+    ;; Pass through content of unknown inline wrappers
+    [`(sup ,_ . ,children) (render-inlines ms children)]
+    [`(span ,_ . ,children) (render-inlines ms children)]
+    [_ ""]))
 
 ;;; ---------- Block rendering ----------
+
+;; Extract inline content from children, unwrapping p tags.
+;; Handles both (li () "text") and (li () (p () "text")).
+(define (extract-inline-content children)
+  (apply append
+    (for/list ([c (in-list children)])
+      (match c
+        [`(p ,_ . ,inner) inner]
+        [_ (list c)]))))
+
+;; Render a list of block-level xexprs, inserting blank lines between blocks.
+(define (render-blocks ms margin-str content-width xexprs)
+  (define block-results
+    (for/list ([x (in-list xexprs)]
+               #:unless (and (string? x) (regexp-match? #rx"^\\s*$" x)))
+      (render-block ms margin-str content-width x)))
+  (define non-empty (filter pair? block-results))
+  (cond
+    [(null? non-empty) '()]
+    [else (apply append (add-between non-empty '("")))]))
+
+;; Render a single block-level xexpr element to a list of output lines.
+(define (render-block ms margin-str content-width x)
+  (match x
+    [(? string? s)
+     (if (regexp-match? #rx"^\\s*$" s) '() (list (string-append margin-str s)))]
+    [`(h1 ,_ . ,children)
+     (render-heading ms margin-str 1 children)]
+    [`(h2 ,_ . ,children)
+     (render-heading ms margin-str 2 children)]
+    [`(h3 ,_ . ,children)
+     (render-heading ms margin-str 3 children)]
+    [`(,(? (lambda (t) (memq t '(h4 h5 h6)))) ,_ . ,children)
+     (render-heading ms margin-str 3 children)]
+    [`(p ,_ . ,children)
+     (render-paragraph ms margin-str children)]
+    [`(ul ,_ . ,children)
+     (render-unordered-list ms margin-str children)]
+    [`(ol ,_ . ,children)
+     (render-ordered-list ms margin-str children)]
+    [`(pre ,_ . ,children)
+     (render-code-block ms margin-str children)]
+    [`(blockquote ,_ . ,children)
+     (render-blockquote ms margin-str content-width children)]
+    [`(hr . ,_)
+     (list (string-append margin-str
+                          (make-string content-width
+                                       (string-ref (markdown-style-hr-char ms) 0))))]
+    [`(div ,_ . ,children)
+     (render-blocks ms margin-str content-width children)]
+    [_ '()]))
+
+(define (render-heading ms margin-str level children)
+  (define-values (prefix color bold?)
+    (case level
+      [(1) (values (markdown-style-h1-prefix ms)
+                   (markdown-style-h1-color ms)
+                   (markdown-style-h1-bold? ms))]
+      [(2) (values (markdown-style-h2-prefix ms)
+                   (markdown-style-h2-color ms)
+                   (markdown-style-h2-bold? ms))]
+      [else (values (markdown-style-h3-prefix ms)
+                    (markdown-style-h3-color ms)
+                    (markdown-style-h3-bold? ms))]))
+  (define txt (render-inlines ms children))
+  (define full-text (string-append prefix txt))
+  (list (string-append margin-str
+                        (cond
+                          [color (render-styled (make-style #:foreground color #:bold bold?)
+                                               full-text)]
+                          [bold? (render-styled (make-style #:bold #t) full-text)]
+                          [else full-text]))))
+
+(define (render-paragraph ms margin-str children)
+  (define txt (render-inlines ms children))
+  (define text-color (markdown-style-text-color ms))
+  (list (string-append margin-str
+                        (if text-color
+                            (render-styled (make-style #:foreground text-color) txt)
+                            txt))))
+
+(define (render-unordered-list ms margin-str items)
+  (apply append
+    (for/list ([item (in-list items)]
+               #:when (and (pair? item) (eq? (car item) 'li)))
+      (match item
+        [`(li ,_ . ,children)
+         (define bullet (markdown-style-list-bullet ms))
+         (define indent-str (make-string (markdown-style-list-indent ms) #\space))
+         (define inline-children (extract-inline-content children))
+         (define txt (render-inlines ms inline-children))
+         (list (string-append margin-str indent-str bullet txt))]))))
+
+(define (render-ordered-list ms margin-str items)
+  (define li-items (filter (lambda (x) (and (pair? x) (eq? (car x) 'li))) items))
+  (for/list ([item (in-list li-items)]
+             [i (in-naturals 1)])
+    (match item
+      [`(li ,_ . ,children)
+       (define indent-str (make-string (markdown-style-ordered-indent ms) #\space))
+       (define inline-children (extract-inline-content children))
+       (define txt (render-inlines ms inline-children))
+       (string-append margin-str indent-str (number->string i) ". " txt)])))
+
+(define (render-code-block ms margin-str children)
+  ;; parse-markdown produces: (pre () (code ((class "brush: lang")) "code\n"))
+  (define code-text
+    (match children
+      [`((code ,_ . ,code-children))
+       (apply string-append (map (lambda (c) (if (string? c) c "")) code-children))]
+      [_ (apply string-append (map (lambda (c) (if (string? c) c "")) children))]))
+  (define code-lines (string-split code-text "\n" #:trim? #f))
+  ;; Remove trailing empty line if present
+  (define trimmed-lines
+    (if (and (pair? code-lines) (string=? (last code-lines) ""))
+        (drop-right code-lines 1)
+        code-lines))
+  (define block-margin (markdown-style-code-block-margin ms))
+  (define inner-margin (make-string block-margin #\space))
+  (define code-bg (markdown-style-code-block-bg ms))
+  (define code-fg (markdown-style-code-block-fg ms))
+  (for/list ([cl (in-list trimmed-lines)])
+    (define styled-line
+      (if (or code-bg code-fg)
+          (render-styled (make-style #:foreground code-fg #:background code-bg)
+                         (string-append inner-margin cl))
+          (string-append inner-margin cl)))
+    (string-append margin-str styled-line)))
+
+(define (render-blockquote ms margin-str content-width children)
+  (define prefix (markdown-style-quote-prefix ms))
+  (define qcolor (markdown-style-quote-color ms))
+  (define styled-prefix
+    (if qcolor (render-styled (make-style #:foreground qcolor) prefix) prefix))
+  ;; Render children as blocks, then prepend quote prefix
+  (define inner-lines (render-blocks ms "" content-width children))
+  (for/list ([line (in-list inner-lines)])
+    (string-append margin-str styled-prefix line)))
+
+;;; ---------- Main entry point ----------
 
 (define (render-markdown content
                          #:style [style-or-sym 'dark]
@@ -173,130 +305,6 @@
   (define margin-str (make-string margin #\space))
   (define content-width (- width (* margin 2)))
 
-  (define lines (string-split content "\n" #:trim? #f))
-  (define output '())
-  (define in-code-block? #f)
-  (define code-lines '())
-
-  (define (emit line)
-    (set! output (cons line output)))
-
-  (define (emit-code-block)
-    (define block-margin (markdown-style-code-block-margin ms))
-    (define inner-margin (make-string block-margin #\space))
-    (define code-bg (markdown-style-code-block-bg ms))
-    (define code-fg (markdown-style-code-block-fg ms))
-    (for ([cl (in-list (reverse code-lines))])
-      (define styled-line
-        (if (or code-bg code-fg)
-            (render-styled (make-style #:foreground code-fg #:background code-bg)
-                           (string-append inner-margin cl))
-            (string-append inner-margin cl)))
-      (emit (string-append margin-str styled-line)))
-    (set! code-lines '()))
-
-  (for ([line (in-list lines)])
-    (cond
-      ;; Toggle code block
-      [(regexp-match? #rx"^```" line)
-       (cond
-         [in-code-block?
-          (emit-code-block)
-          (set! in-code-block? #f)]
-         [else
-          (set! in-code-block? #t)
-          (set! code-lines '())])]
-
-      ;; Inside code block
-      [in-code-block?
-       (set! code-lines (cons line code-lines))]
-
-      ;; Horizontal rule
-      [(regexp-match? #rx"^(---+|\\*\\*\\*+|___+)\\s*$" line)
-       (define hr-ch (markdown-style-hr-char ms))
-       (emit (string-append margin-str (make-string content-width
-                                                    (string-ref hr-ch 0))))]
-
-      ;; H1
-      [(regexp-match #rx"^# (.+)" line)
-       => (lambda (m)
-            (define txt (list-ref m 1))
-            (define prefix (markdown-style-h1-prefix ms))
-            (define s (make-style #:foreground (markdown-style-h1-color ms)
-                                  #:bold (markdown-style-h1-bold? ms)))
-            (emit (string-append margin-str
-                                 (if (markdown-style-h1-color ms)
-                                     (render-styled s (string-append prefix txt))
-                                     (string-append prefix txt)))))]
-
-      ;; H2
-      [(regexp-match #rx"^## (.+)" line)
-       => (lambda (m)
-            (define txt (list-ref m 1))
-            (define prefix (markdown-style-h2-prefix ms))
-            (define s (make-style #:foreground (markdown-style-h2-color ms)
-                                  #:bold (markdown-style-h2-bold? ms)))
-            (emit (string-append margin-str
-                                 (if (markdown-style-h2-color ms)
-                                     (render-styled s (string-append prefix txt))
-                                     (string-append prefix txt)))))]
-
-      ;; H3
-      [(regexp-match #rx"^### (.+)" line)
-       => (lambda (m)
-            (define txt (list-ref m 1))
-            (define prefix (markdown-style-h3-prefix ms))
-            (define s (make-style #:foreground (markdown-style-h3-color ms)
-                                  #:bold (markdown-style-h3-bold? ms)))
-            (emit (string-append margin-str
-                                 (if (markdown-style-h3-color ms)
-                                     (render-styled s (string-append prefix txt))
-                                     (string-append prefix txt)))))]
-
-      ;; Unordered list item
-      [(regexp-match #rx"^\\s*[-*+]\\s+(.+)" line)
-       => (lambda (m)
-            (define txt (list-ref m 1))
-            (define bullet (markdown-style-list-bullet ms))
-            (define indent-str (make-string (markdown-style-list-indent ms) #\space))
-            (emit (string-append margin-str indent-str bullet
-                                 (parse-inline ms txt))))]
-
-      ;; Ordered list item
-      [(regexp-match #rx"^\\s*([0-9]+)\\.\\s+(.+)" line)
-       => (lambda (m)
-            (define num (list-ref m 1))
-            (define txt (list-ref m 2))
-            (define indent-str (make-string (markdown-style-ordered-indent ms) #\space))
-            (emit (string-append margin-str indent-str num ". "
-                                 (parse-inline ms txt))))]
-
-      ;; Blockquote
-      [(regexp-match #rx"^>\\s*(.*)" line)
-       => (lambda (m)
-            (define txt (list-ref m 1))
-            (define prefix (markdown-style-quote-prefix ms))
-            (define qcolor (markdown-style-quote-color ms))
-            (define styled-prefix
-              (if qcolor (render-styled (make-style #:foreground qcolor) prefix) prefix))
-            (emit (string-append margin-str styled-prefix
-                                 (parse-inline ms txt))))]
-
-      ;; Empty line
-      [(regexp-match? #rx"^\\s*$" line)
-       (emit "")]
-
-      ;; Normal paragraph text
-      [else
-       (define rendered (parse-inline ms line))
-       (define text-color (markdown-style-text-color ms))
-       (emit (string-append margin-str
-                            (if text-color
-                                (render-styled (make-style #:foreground text-color) rendered)
-                                rendered)))]))
-
-  ;; Close any remaining code block
-  (when in-code-block?
-    (emit-code-block))
-
-  (string-join (reverse output) "\n"))
+  (define xexprs (parse-markdown content))
+  (define lines (render-blocks ms margin-str content-width xexprs))
+  (string-join lines "\n"))
