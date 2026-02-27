@@ -1,6 +1,9 @@
 #lang scribble/manual
 @(require (for-label racket/base
                      racket/generic
+                     (only-in 2htdp/universe
+                              big-bang on-tick on-key on-mouse
+                              to-draw stop-when)
                      kettle
                      kettle/run))
 
@@ -72,8 +75,8 @@ The same program in Kettle:
                      @racket[#:stop-when pred]
                      "Same idea")
                (list @racket[[on-tick handler]]
-                     "subscriptions"
-                     "More advanced; see below")
+                     @racket[#:on-tick handler]
+                     "Subscriptions for advanced use")
                (list "Handler returns state"
                      @elem{state or @racket[(cmd state command)]}
                      "Bare value or cmd wrapper")
@@ -244,13 +247,11 @@ as @racket[big-bang]:
   #:to-view (lambda (n) (text (format "~a" n))))
 ]
 
-@section{on-tick becomes subscriptions}
+@section{Timers: on-tick and subscriptions}
 
 @racket[big-bang] has a simple @racket[[on-tick handler]] or
-@racket[[on-tick handler rate]] clause. Kettle's @racket[run] form
-doesn't have a tick handler. For time-based programs, you need
-@racket[define-kettle-program] with subscriptions, which is more powerful
-but more involved.
+@racket[[on-tick handler rate]] clause. Kettle's @racket[run] supports
+the same pattern with @racket[#:on-tick] and @racket[#:tick-rate].
 
 Here's a side-by-side of a counting timer.
 
@@ -266,30 +267,38 @@ Here's a side-by-side of a counting timer.
 Kettle version:
 
 @racketblock[
-(require kettle)
+(require kettle/run kettle/image)
 
-(define-kettle-program
-  ticker
-  #:fields ([count 0])
-  #:update
-  (lambda (self msg)
-    (cond
-      [(tick-msg? msg)
-       (define new-self (struct-copy ticker self
-                          [count (add1 (ticker-count self))]))
-       (if (> (ticker-count self) 10)
-           (cmd new-self (quit-cmd))
-           new-self)]
-      [else self]))
-  #:view
-  (lambda (self)
-    (text (number->string (ticker-count self)))))
+(run 0
+  #:on-tick add1
+  #:tick-rate 1
+  #:stop-when (lambda (n) (> n 10))
+  #:to-view (lambda (n) (text (number->string n))))
 ]
 
-This uses @racket[tick-msg] messages that arrive from the program
-runner's subscription system. The @racket[define-kettle-program] macro
-creates a struct (@racket[ticker]) with field accessors
-(@racket[ticker-count]) and a constructor (@racket[make-ticker]).
+The @racket[#:on-tick] handler takes the current state and returns the
+new state (or a @racket[cmd] wrapper), the same as @racket[big-bang]'s
+@racket[on-tick]. The @racket[#:tick-rate] is in seconds and defaults
+to 1.
+
+@subsection{When to use subscriptions instead}
+
+For advanced use cases, Kettle provides a subscription system available
+via @racket[define-kettle-program] or @racket[gen:kettle-model].
+Subscriptions are more powerful than @racket[#:on-tick] because they
+are declarative and composable:
+
+@itemlist[
+  @item{Multiple independent timers at different rates}
+  @item{Dynamic subscriptions that change based on state (e.g., pause
+        a timer, change its rate)}
+  @item{Port watching for subprocess output or network sockets}
+  @item{Lifecycle management: subscriptions auto-start and auto-stop
+        when the subscription list changes}
+]
+
+For most programs that need a simple timer, @racket[#:on-tick] is
+sufficient.
 
 @section{Scaling up: @racket[define-kettle-program]}
 

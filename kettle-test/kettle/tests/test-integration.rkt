@@ -53,6 +53,55 @@
   (check-test-program-contains tp "quit"))
 
 ;;; ============================================================
+;;; on-tick (run-style with timer)
+;;; ============================================================
+
+(test-case "on-tick: increments state on tick message"
+  (define tp (make-test-program/run 0
+               #:on-tick add1
+               #:to-view (lambda (n) (text (format "~a" n)))))
+  (check-test-program-running tp)
+  (check-test-program-contains tp "0")
+  ;; Simulate a tick message
+  (test-program-send tp (tick-msg (current-inexact-milliseconds)))
+  (check-test-program-contains tp "1")
+  (test-program-send tp (tick-msg (current-inexact-milliseconds)))
+  (check-test-program-contains tp "2"))
+
+(test-case "on-tick: stop-when triggers after tick"
+  (define tp (make-test-program/run 8
+               #:on-tick add1
+               #:stop-when (lambda (n) (> n 10))
+               #:to-view (lambda (n) (text (format "~a" n)))))
+  (check-test-program-running tp)
+  (test-program-send tp (tick-msg (current-inexact-milliseconds)))
+  (check-test-program-contains tp "9")
+  (test-program-send tp (tick-msg (current-inexact-milliseconds)))
+  (check-test-program-contains tp "10")
+  (test-program-send tp (tick-msg (current-inexact-milliseconds)))
+  (check-test-program-done tp))
+
+(test-case "on-tick: without on-tick, tick messages go to on-msg"
+  (define tp (make-test-program/run 0
+               #:on-msg (lambda (v msg)
+                          (if (tick-msg? msg) (add1 v) v))
+               #:to-view (lambda (n) (text (format "~a" n)))))
+  (check-test-program-running tp)
+  (test-program-send tp (tick-msg (current-inexact-milliseconds)))
+  (check-test-program-contains tp "1"))
+
+(test-case "on-tick: with both on-tick and on-key"
+  (define tp (make-test-program/run 0
+               #:on-tick (lambda (n) (+ n 10))
+               #:on-key (lambda (n km) (add1 n))
+               #:to-view (lambda (n) (text (format "~a" n)))))
+  (check-test-program-running tp)
+  (test-program-send tp (tick-msg (current-inexact-milliseconds)))
+  (check-test-program-contains tp "10")
+  (test-program-press tp #\a)
+  (check-test-program-contains tp "11"))
+
+;;; ============================================================
 ;;; Stopwatch (define-kettle-program)
 ;;; ============================================================
 

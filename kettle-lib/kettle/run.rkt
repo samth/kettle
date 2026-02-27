@@ -11,11 +11,14 @@
          racket/match
          "private/protocol.rkt"
          "private/program.rkt"
-         "private/image.rkt")
+         "private/image.rkt"
+         "private/subscriptions.rkt")
 
 (provide (contract-out [run
                         (->* (any/c)
                              (#:on-key (or/c #f (-> any/c key-msg? any/c))
+                                       #:on-tick (or/c #f (-> any/c any/c))
+                                       #:tick-rate (and/c real? positive?)
                                        #:on-msg (or/c #f (-> any/c msg? any/c))
                                        #:to-view (or/c #f (-> any/c image?))
                                        #:stop-when (or/c #f (-> any/c boolean?))
@@ -24,30 +27,10 @@
                                        #:show-fps boolean?
                                        #:kitty-keyboard boolean?)
                              void?)])
-         on-key
-         on-msg
-         to-view
-         stop-when)
-
-;; Clause markers (used as syntax identifiers for matching in `run`)
-(define-syntax on-key
-  (syntax-rules ()
-    [(_ handler) handler]))
-
-(define-syntax on-msg
-  (syntax-rules ()
-    [(_ handler) handler]))
-
-(define-syntax to-view
-  (syntax-rules ()
-    [(_ handler) handler]))
-
-(define-syntax stop-when
-  (syntax-rules ()
-    [(_ pred) pred]))
+)
 
 ;; Internal wrapper implementing gen:kettle-model around a plain value.
-(struct run-model (value on-key-fn on-msg-fn view-fn stop-fn)
+(struct run-model (value on-key-fn on-msg-fn view-fn stop-fn on-tick-fn tick-rate)
   #:methods gen:kettle-model
   [(define (init m) m)
    (define (update m msg)
@@ -62,6 +45,13 @@
         (if (and (run-model-stop-fn m) ((run-model-stop-fn m) new-val))
             (cmd new-model (quit-cmd))
             (if cmd* (cmd new-model cmd*) new-model))]
+       ;; Tick messages go to on-tick handler (takes state only, no message)
+       [(and (tick-msg? msg) (run-model-on-tick-fn m))
+        (define-values (new-val cmd*) (extract-update-result ((run-model-on-tick-fn m) (run-model-value m))))
+        (define new-model (struct-copy run-model m [value new-val]))
+        (if (and (run-model-stop-fn m) ((run-model-stop-fn m) new-val))
+            (cmd new-model (quit-cmd))
+            (if cmd* (cmd new-model cmd*) new-model))]
        ;; All other messages go to on-msg handler
        [(run-model-on-msg-fn m)
         (define-values (new-val cmd*) (extract-update-result ((run-model-on-msg-fn m) (run-model-value m) msg)))
@@ -73,11 +63,17 @@
    (define (view m)
      (if (run-model-view-fn m)
          ((run-model-view-fn m) (run-model-value m))
-         (text (format "~a" (run-model-value m)))))])
+         (text (format "~a" (run-model-value m)))))
+   (define (subscriptions m)
+     (if (run-model-on-tick-fn m)
+         (list (every (run-model-tick-rate m) tick-msg))
+         '()))])
 
 ;; Main entry point.
 (define (run initial-value
              #:on-key [on-key-fn #f]
+             #:on-tick [on-tick-fn #f]
+             #:tick-rate [tick-rate 1]
              #:on-msg [on-msg-fn #f]
              #:to-view [view-fn #f]
              #:stop-when [stop-fn #f]
@@ -85,7 +81,7 @@
              #:mouse [mouse #f]
              #:show-fps [show-fps #f]
              #:kitty-keyboard [kitty-keyboard #f])
-  (define model (run-model initial-value on-key-fn on-msg-fn view-fn stop-fn))
+  (define model (run-model initial-value on-key-fn on-msg-fn view-fn stop-fn on-tick-fn tick-rate))
   (define p (make-program model #:alt-screen alt-screen #:mouse mouse #:show-fps show-fps
                           #:kitty-keyboard kitty-keyboard))
   (program-run p))
