@@ -258,20 +258,21 @@
     (with-handlers ([exn:fail? (lambda (_) '())])
       (subscriptions (program-model p))))
   (define old-subs (program-active-subs p))
-  (define-values (added removed _kept) (diff-subscriptions old-subs new-subs))
-  ;; Stop removed subscriptions
-  (for ([sub (in-list removed)])
-    (define key (subscription-key sub))
-    (define stopper (hash-ref (program-sub-stoppers p) key #f))
-    (when stopper (stop-subscription stopper))
-    (hash-remove! (program-sub-stoppers p) key))
-  ;; Start added subscriptions
-  (for ([sub (in-list added)])
-    (define key (subscription-key sub))
-    (define stopper (start-subscription sub (lambda (m) (program-send p m))))
-    (when (procedure? stopper)
-      (hash-set! (program-sub-stoppers p) key stopper)))
-  (set-program-active-subs! p new-subs))
+  (unless (equal? new-subs old-subs)
+    (define-values (added removed _kept) (diff-subscriptions old-subs new-subs))
+    ;; Stop removed subscriptions
+    (for ([sub (in-list removed)])
+      (define key (subscription-key sub))
+      (define stopper (hash-ref (program-sub-stoppers p) key #f))
+      (when stopper (stop-subscription stopper))
+      (hash-remove! (program-sub-stoppers p) key))
+    ;; Start added subscriptions
+    (for ([sub (in-list added)])
+      (define key (subscription-key sub))
+      (define stopper (start-subscription sub (lambda (m) (program-send p m))))
+      (when (procedure? stopper)
+        (hash-set! (program-sub-stoppers p) key stopper)))
+    (set-program-active-subs! p new-subs)))
 
 ;; Stop all active subscriptions.
 (define (stop-all-subscriptions! p)
