@@ -34,7 +34,8 @@
          program-run
          program-show-fps!
          current-program
-         define-kettle-program)
+         define-kettle-program
+         coalesce-mouse-events)
 
 (define current-program (make-parameter #f))
 
