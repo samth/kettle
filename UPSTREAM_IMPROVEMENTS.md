@@ -23,7 +23,24 @@ and `ubuf-stride`/`ubuf-cells`/`ubuf-outbuf`/`ubuf-clip-*` from
 **Suggested fix:** Add a `#:last-newline?` keyword argument to `display-ubuf!`
 (defaulting to `#t` for backward compatibility).
 
-### 2. No `#:reverse` attribute support in `ubuf-putchar!`
+### 2. `display-ubuf-cells` doesn't erase to end of line between rows
+
+**Problem:** In linear mode, `display-ubuf-cells` emits `\x1b[0m\r\n` between
+rows to reset attributes. However, it doesn't emit `\x1b[K` (erase to end of
+line), so the area to the right of each row retains whatever SGR attributes were
+active from the last cell. When the rendered image is narrower than the terminal,
+this causes visible differences in background appearance between rows with styled
+content and rows without. Additionally, the between-row reset only cleared `fg`
+and `bg` tracking state, not `bold`, `underline`, `italic`, or `blink`, so those
+attributes could carry over incorrectly.
+
+**Fix applied:** Changed the between-row sequence to `\x1b[0m\x1b[K\r\n` and
+added resets for all tracked attribute state. Kettle's renderer also now emits
+`\x1b[0m` before `clear-to-end-of-screen` to ensure the final clear uses default
+attributes. The fix is in the local clone at `tui-ubuf/`. This should be
+upstreamed.
+
+### 3. No `#:reverse` attribute support in `ubuf-putchar!`
 
 **Problem:** `ubuf-putchar!` supports `#:bold`, `#:italic`, `#:underline`, and
 `#:blink`, but not `#:reverse` (SGR 7). Reverse video is a common text
@@ -37,7 +54,7 @@ terminal fg/bg should be reversed (Kettle uses 7/0 as defaults).
 `tcf-reverse-*` flags in `attributes.rkt`, with SGR 7/27 output in
 `vt-output.rkt`.
 
-### 3. No `#:strikethrough` or `#:faint` attribute support
+### 4. No `#:strikethrough` or `#:faint` attribute support
 
 **Problem:** `ubuf-putchar!` doesn't support strikethrough (SGR 9) or faint/dim
 (SGR 2) text attributes.
@@ -48,7 +65,7 @@ when writing to the ubuf.
 **Suggested fix:** Add `#:strikethrough` and `#:faint` keywords to
 `ubuf-putchar!`.
 
-### 4. `display-ubuf-cells` not exported from main `tui/ubuf` module
+### 5. `display-ubuf-cells` not exported from main `tui/ubuf` module
 
 **Problem:** `display-ubuf-cells` is provided from `tui/ubuf/vt-output` but not
 re-exported from the main `tui/ubuf` module. Similarly, the ubuf struct
@@ -64,7 +81,7 @@ becomes moot. Otherwise, consider re-exporting `display-ubuf-cells` from
 
 ## ansi
 
-### 5. `lex-lcd-input` didn't handle Kitty keyboard protocol (CSI u)
+### 6. `lex-lcd-input` didn't handle Kitty keyboard protocol (CSI u)
 
 **Problem:** The Kitty keyboard protocol uses `ESC[keycode;modifiers:event_type u`
 sequences. The colon sub-parameter separator and the `u` terminator were not
@@ -75,7 +92,7 @@ returned as `unknown-escape-sequence` values, with some bytes left in the port.
 struct, `kitty-keycode->value` mapping, and `decode-kitty-key` to
 `ansi/lcd-terminal.rkt`. This should be upstreamed.
 
-### 6. `lex-lcd-input` didn't handle bracketed paste
+### 7. `lex-lcd-input` didn't handle bracketed paste
 
 **Problem:** Bracketed paste uses `ESC[200~` to start and `ESC[201~` to end.
 `lex-lcd-input` parsed `ESC[200~` as a regular CSI tilde sequence, returning it
@@ -85,7 +102,7 @@ port buffer.
 **Fix applied:** Added a `bracketed-paste-event` struct and a regex match for
 `ESC[200~` that reads content until `ESC[201~`. This should be upstreamed.
 
-### 7. `lex-lcd-input` didn't handle Kitty query response (CSI ? N u)
+### 8. `lex-lcd-input` didn't handle Kitty query response (CSI ? N u)
 
 **Problem:** `ESC[?Nu` is the Kitty keyboard protocol query response, where N is
 a flags integer. The `?` prefix wasn't matched by any existing pattern.
@@ -94,7 +111,7 @@ a flags integer. The `?` prefix wasn't matched by any existing pattern.
 with value `'query-response` and the flags in the event-type field. This should
 be upstreamed.
 
-### 8. Backtab returned as Ctrl+Shift+I instead of `'backtab`
+### 9. Backtab returned as Ctrl+Shift+I instead of `'backtab`
 
 **Problem:** `ESC[Z` (backtab/shift-tab) was mapped to `(key #\I (set 'control
 'shift))` which is technically correct but inconvenient. Consumers must check for
@@ -103,7 +120,7 @@ the Ctrl+Shift+I combination instead of a simple `'backtab` symbol.
 **Fix applied:** Changed `["Z" (C-S- #\I)]` to `["Z" (simple-key 'backtab)]`.
 This should be upstreamed.
 
-### 9. Tab, Enter, and Escape not returned as named keys
+### 10. Tab, Enter, and Escape not returned as named keys
 
 **Problem:** `interpret-ascii-code` mapped all control characters uniformly to
 `(key <char> (set 'control))`. Tab (0x09) was returned as `(key #\I (set
@@ -115,7 +132,7 @@ names.
 (`'tab`), 0x0a/0x0d (`'enter`), and 0x1b (`'escape`). This should be
 upstreamed.
 
-### 10. Alt+key not recognized
+### 11. Alt+key not recognized
 
 **Problem:** `ESC` followed by a printable character (Alt+key in most terminals)
 was not handled. The ESC was consumed, and the following character fell through
