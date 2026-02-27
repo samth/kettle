@@ -1,0 +1,41 @@
+PROGRAM ../viewer.rkt
+ARGS sample.txt
+STARTUP 8
+
+# Show initial state
+WAIT 1.5
+
+# Scroll down
+KEY j
+WAIT 0.3
+KEY j
+WAIT 0.3
+KEY j
+WAIT 0.3
+KEY j
+WAIT 0.3
+KEY j
+WAIT 1
+
+# Page down
+KEY Space
+WAIT 1.5
+
+# Scroll back up
+KEY k
+WAIT 0.3
+KEY k
+WAIT 0.3
+KEY k
+WAIT 1
+
+# Jump to top
+KEY g
+WAIT 1.5
+
+# Jump to bottom
+KEY G
+WAIT 1.5
+
+# Quit
+KEY q

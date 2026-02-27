@@ -1,0 +1,32 @@
+PROGRAM ../snake.rkt
+STARTUP 8
+
+# Watch it move right for a bit
+WAIT 1
+
+# Turn down
+KEY Down
+WAIT 1
+
+# Turn left
+KEY Left
+WAIT 1.5
+
+# Turn up
+KEY Up
+WAIT 1
+
+# Turn right
+KEY Right
+WAIT 1
+
+# More moves
+KEY Down
+WAIT 1.5
+KEY Left
+WAIT 1
+KEY Up
+WAIT 1.5
+
+# Quit
+KEY q

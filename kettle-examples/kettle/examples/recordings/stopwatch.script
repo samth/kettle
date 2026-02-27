@@ -1,0 +1,24 @@
+PROGRAM ../stopwatch.rkt
+STARTUP 8
+
+# Show initial stopped state
+WAIT 1.5
+
+# Start the stopwatch
+KEY Space
+WAIT 3
+
+# Record a lap
+KEY l
+WAIT 2
+
+# Record another lap
+KEY l
+WAIT 2
+
+# Stop
+KEY Space
+WAIT 1.5
+
+# Quit
+KEY q

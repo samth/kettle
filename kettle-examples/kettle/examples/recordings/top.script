@@ -1,0 +1,35 @@
+PROGRAM ../top.rkt
+STARTUP 10
+
+# Show initial state
+WAIT 2
+
+# Cycle sort column
+KEY s
+WAIT 2
+
+# Cycle sort again
+KEY s
+WAIT 2
+
+# Scroll down
+KEY Down
+WAIT 0.5
+KEY Down
+WAIT 0.5
+KEY Down
+WAIT 0.5
+KEY Down
+WAIT 1
+
+# Scroll back up
+KEY Up
+WAIT 0.5
+KEY Up
+WAIT 0.5
+
+# Wait for an update tick
+WAIT 2
+
+# Quit
+KEY q

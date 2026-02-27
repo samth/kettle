@@ -1,0 +1,42 @@
+PROGRAM ../todo.rkt
+STARTUP 8
+
+# Type first todo item
+WAIT 1
+TYPE Buy groceries
+WAIT 0.5
+KEY Enter
+WAIT 0.5
+
+# Type second item
+TYPE Walk the dog
+WAIT 0.5
+KEY Enter
+WAIT 0.5
+
+# Type third item
+TYPE Write more Racket
+WAIT 0.5
+KEY Enter
+WAIT 1
+
+# Switch to navigate mode
+KEY Tab
+WAIT 1
+
+# Move down
+KEY Down
+WAIT 0.5
+KEY Down
+WAIT 0.5
+
+# Move back up
+KEY Up
+WAIT 0.5
+
+# Delete an item
+KEY d
+WAIT 1.5
+
+# Quit
+KEY C-q

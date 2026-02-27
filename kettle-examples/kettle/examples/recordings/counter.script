@@ -1,0 +1,17 @@
+PROGRAM ../counter.rkt
+STARTUP 8
+
+WAIT 1
+KEY +
+WAIT 0.8
+KEY +
+WAIT 0.8
+KEY +
+WAIT 0.8
+KEY +
+WAIT 1.2
+KEY -
+WAIT 0.8
+KEY -
+WAIT 1.5
+KEY q
