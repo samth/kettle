@@ -103,13 +103,19 @@
     [(image:flex w h sw mw sh mh inner) (paint! buf inner x y sty)]
     [_ (void)]))
 
-;; Paint a single-line string (possibly with ANSI codes) into the buffer
+;; Paint a single-line string (possibly with ANSI codes) into the buffer.
+;; Uses grapheme cluster segmentation so combining marks, ZWJ sequences,
+;; and skin-tone modifiers are painted as part of their base character.
 (define (paint-text! buf str x y sty)
   (define len (string-length str))
   (define col x)
   (define i 0)
-  ;; Track inline ANSI style overrides
+  ;; Track inline ANSI style overrides (built in reverse with cons)
   (define inline-codes '())
+  ;; Cache the computed effective style; recomputed only when inline-codes changes
+  (define effective-style sty)
+  (define style-dirty? #f)
+  (define gs 0) ; grapheme-step state
   (let loop ()
     (when (< i len)
       (define ch (string-ref str i))
@@ -131,21 +137,32 @@
                   (define code-str (substring str code-start (sub1 i)))
                   (cond
                     ;; Reset
-                    [(string=? code-str "0") (set! inline-codes '())]
-                    ;; Otherwise accumulate
-                    [else (set! inline-codes (append inline-codes (list code-str)))])]
+                    [(string=? code-str "0")
+                     (set! inline-codes '())
+                     (set! effective-style sty)
+                     (set! style-dirty? #f)]
+                    ;; Otherwise accumulate (cons for O(1))
+                    [else
+                     (set! inline-codes (cons code-str inline-codes))
+                     (set! style-dirty? #t)])]
                  [else (inner)]))))
          (loop)]
         [else
-         (define cw (char-display-width ch))
-         (when (> cw 0)
-           (define effective-style
-             (if (null? inline-codes)
-                 sty
-                 (make-inline-style sty inline-codes)))
-           ;; ubuf-putchar! handles wide chars natively
-           (ubuf-set-styled! buf col y ch effective-style)
-           (set! col (+ col cw)))
+         (define-values (brk new-gs) (char-grapheme-step ch gs))
+         (cond
+           ;; Start of new grapheme cluster: paint the base character
+           [(or brk (= gs 0))
+            (define cw (char-display-width ch))
+            (when (> cw 0)
+              ;; Recompute effective style only when ANSI codes have changed
+              (when style-dirty?
+                (set! effective-style (make-inline-style sty (reverse inline-codes)))
+                (set! style-dirty? #f))
+              (ubuf-set-styled! buf col y ch effective-style)
+              (set! col (+ col cw)))]
+           ;; Continuation of cluster: skip (combining mark, ZWJ, modifier)
+           [else (void)])
+         (set! gs new-gs)
          (set! i (add1 i))
          (loop)]))))
 

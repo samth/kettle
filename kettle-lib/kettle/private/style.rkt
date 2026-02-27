@@ -299,10 +299,13 @@
        [else 1])]))
 
 (define (visible-length str)
-  "Calculate visible display width of STR, excluding ANSI escapes."
+  "Calculate visible display width of STR, excluding ANSI escapes.
+   Uses grapheme cluster segmentation so combining marks, ZWJ sequences,
+   and skin-tone modifiers are correctly counted as part of their base character."
   (define result 0)
   (define i 0)
   (define len (string-length str))
+  (define gs 0) ; grapheme-step state (0 = initial)
   (let loop ()
     (when (< i len)
       (define ch (string-ref str i))
@@ -318,7 +321,13 @@
                (unless (and (>= code #x40) (<= code #x7E))
                  (inner)))))]
         [else
-         (set! result (+ result (char-display-width ch)))
+         (define-values (brk new-gs) (char-grapheme-step ch gs))
+         ;; Count width when this codepoint starts a new grapheme cluster:
+         ;; - brk=#t means there's a cluster boundary before this char
+         ;; - gs=0 means this is the very first visible char (no prior break)
+         (when (or brk (= gs 0))
+           (set! result (+ result (char-display-width ch))))
+         (set! gs new-gs)
          (set! i (add1 i))])
       (loop)))
   result)
@@ -549,49 +558,51 @@
   (define ellw (visible-length ellipsis))
   (define budget (max 0 (- maxw ellw)))
   (define w 0)
-  (define truncated? #f)
-  (define out (open-output-string))
-
   (define i 0)
   (define len (string-length text))
+  (define gs 0) ; grapheme-step state
+  ;; Track the string position where we'd cut (right before the cluster
+  ;; that doesn't fit). Updated at each new cluster boundary.
+  (define cut-pos 0)
   (let loop ()
-    (when (and (< i len) (not truncated?))
-      (define ch (string-ref text i))
-      (cond
-        ;; ANSI escape
-        [(char=? ch #\u001B)
-         (write-char ch out)
-         (set! i (add1 i))
-         (when (and (< i len) (char=? (string-ref text i) #\[))
-           (write-char (string-ref text i) out)
-           (set! i (add1 i))
-           (let inner ()
-             (when (< i len)
-               (define c (string-ref text i))
-               (write-char c out)
-               (set! i (add1 i))
-               (define code (char->integer c))
-               (unless (and (>= code #x40) (<= code #x7E))
-                 (inner)))))
-         (loop)]
-        ;; Newline
-        [(char=? ch #\newline)
-         (write-char ch out)
-         (set! i (add1 i))
-         (loop)]
-        ;; Regular char
-        [else
-         (define cw (char-display-width ch))
-         (if (<= (+ w cw) budget)
-             (begin
-               (set! w (+ w cw))
-               (write-char ch out)
-               (set! i (add1 i))
-               (loop))
-             (set! truncated? #t))])))
-
-  (define s (get-output-string out))
-  (if truncated? (string-append s ellipsis) s))
+    (cond
+      [(>= i len) text] ; reached end without exceeding budget — return original
+      [else
+       (define ch (string-ref text i))
+       (cond
+         ;; ANSI escape: skip over it (will be included via substring)
+         [(char=? ch #\u001B)
+          (set! i (add1 i))
+          (when (and (< i len) (char=? (string-ref text i) #\[))
+            (set! i (add1 i))
+            (let inner ()
+              (when (< i len)
+                (define code (char->integer (string-ref text i)))
+                (set! i (add1 i))
+                (unless (and (>= code #x40) (<= code #x7E))
+                  (inner)))))
+          (loop)]
+         ;; Regular char (including newlines — they have width 0 via char-display-width)
+         [else
+          (define-values (brk new-gs) (char-grapheme-step ch gs))
+          (cond
+            ;; Start of a new grapheme cluster (or first visible char)
+            [(or brk (= gs 0))
+             (set! cut-pos i) ; if this cluster doesn't fit, cut right before it
+             (define cw (char-display-width ch))
+             (if (<= (+ w cw) budget)
+                 (begin
+                   (set! w (+ w cw))
+                   (set! gs new-gs)
+                   (set! i (add1 i))
+                   (loop))
+                 ;; Doesn't fit — truncate before this cluster
+                 (string-append (substring text 0 cut-pos) ellipsis))]
+            ;; Continuation of current cluster (combining mark, ZWJ, modifier)
+            [else
+             (set! gs new-gs)
+             (set! i (add1 i))
+             (loop)])])])))
 
 (define (ellipsize text width)
   (truncate-text text width #:ellipsis "\u2026"))
