@@ -172,9 +172,9 @@
                                   (vector-ref month-names fm) fy))]
              [dn (text day-names)])
         (vcat 'left
-              (pad 2 0 0 0 hdr)
-              (pad 2 0 0 0 dn)
-              (pad 2 0 0 0 cal-body)))
+              (pad hdr #:left 2)
+              (pad dn #:left 2)
+              (pad cal-body #:left 2)))
       (vcat 'left
-            (pad 2 0 0 0 (text day-names))
-            (pad 2 0 0 0 cal-body))))
+            (pad (text day-names) #:left 2)
+            (pad cal-body #:left 2))))

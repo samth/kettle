@@ -17,9 +17,7 @@
 
 (require racket/match
          racket/format
-         kettle/program
-         kettle/image
-         kettle/style)
+         kettle)
 
 (define timeout-secs 5)
 

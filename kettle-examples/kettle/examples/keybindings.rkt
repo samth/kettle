@@ -17,6 +17,7 @@
 
 (require racket/match
          racket/format
+         racket/string
          kettle/program
          kettle/image
          kettle/style)

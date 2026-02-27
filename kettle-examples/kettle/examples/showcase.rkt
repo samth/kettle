@@ -18,10 +18,8 @@
 
 (require racket/match
          racket/format
-         kettle/program
-         kettle/image
-         kettle/style
-         kettle/border)
+         racket/math
+         kettle)
 
 (define-kettle-program showcase
   #:fields ([progress 0.0] [tick-count 0] [status "Initializing..."] [running? #t])

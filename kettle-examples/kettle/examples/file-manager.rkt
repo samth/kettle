@@ -22,10 +22,8 @@
          racket/string
          racket/format
          racket/file
-         kettle/program
-         kettle/image
-         kettle/style
-         kettle/border)
+         racket/path
+         kettle)
 
 (struct file-item (name path dir? size) #:transparent)
 

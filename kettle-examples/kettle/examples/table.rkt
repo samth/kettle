@@ -47,9 +47,9 @@
   (vcat 'left
         (bold "Table Examples")
         ""
-        (string->image (tbl:table-render languages-table))
+        (tbl:table-render languages-table)
         ""
-        (string->image (tbl:table-render ascii-table))
+        (tbl:table-render ascii-table)
         ""
         "Press q to quit"))
 

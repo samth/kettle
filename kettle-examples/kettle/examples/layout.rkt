@@ -15,6 +15,7 @@
 
 (require racket/format
          racket/string
+         racket/math
          kettle/style
          kettle/border
          kettle/layout)

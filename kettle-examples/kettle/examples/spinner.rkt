@@ -21,24 +21,30 @@
          kettle
          (prefix-in sp: kettle/components/spinner))
 
+;; Import generic functions under a prefix to avoid shadowing inside #:methods
+(require (only-in kettle
+                  [init kettle:init]
+                  [view kettle:view]))
+
 (struct spinner-demo (spinner)
   #:transparent
   #:methods gen:kettle-model
-  [(define (init sd) sd)
+  [(define (init sd)
+     (define-values (new-sp init-cmd)
+       (extract-update-result (kettle:init (spinner-demo-spinner sd))))
+     (define new-sd (struct-copy spinner-demo sd [spinner new-sp]))
+     (if init-cmd (cmd new-sd init-cmd) new-sd))
    (define (update sd msg)
      (match msg
        [(key-msg #\q _ _) (cmd sd (quit-cmd))]
        [(key-msg _ _ #t)  (cmd sd (quit-cmd))]
-       [_ (define-values (new-sp sub-cmd)
-            (extract-update-result (update (spinner-demo-spinner sd) msg)))
-          (define new-sd (struct-copy spinner-demo sd [spinner new-sp]))
-          (if sub-cmd (cmd new-sd sub-cmd) new-sd)]))
-   (define (subscriptions sd)
-     (subscriptions (spinner-demo-spinner sd)))
+       [_ (delegate sd spinner-demo-spinner
+                    (lambda (p new-sp) (struct-copy spinner-demo p [spinner new-sp]))
+                    msg)]))
    (define (view sd)
      (hcat 'top
            (text "   ")
-           (view (spinner-demo-spinner sd))
+           (kettle:view (spinner-demo-spinner sd))
            (text " Loading forever...press q to quit")))])
 
 (module+ main

@@ -19,9 +19,7 @@
          racket/format
          racket/math
          racket/string
-         kettle/program
-         kettle/image
-         kettle/style)
+         kettle)
 
 (define eye-width 15)
 (define eye-height 12)

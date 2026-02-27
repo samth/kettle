@@ -43,7 +43,7 @@
       [(>= cols n) (apply string-append (reverse out))]
       ;; ANSI escape sequence
       [(and (< (add1 i) len)
-            (char=? (string-ref str i) #\escape)
+            (char=? (string-ref str i) #\u001B)
             (char=? (string-ref str (add1 i)) #\[))
        ;; Scan to end of CSI sequence
        (define end
@@ -74,7 +74,7 @@
                       (substring str i))]
       ;; ANSI escape sequence -- pass through but remember for prefix
       [(and (< (add1 i) len)
-            (char=? (string-ref str i) #\escape)
+            (char=? (string-ref str i) #\u001B)
             (char=? (string-ref str (add1 i)) #\[))
        (define end
          (let esc-loop ([j (+ i 2)])

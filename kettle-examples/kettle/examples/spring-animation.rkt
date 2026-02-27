@@ -19,9 +19,7 @@
 (require racket/match
          racket/format
          racket/math
-         kettle/program
-         kettle/image
-         kettle/style)
+         kettle)
 
 ;; Simple spring physics: critically-damped, under-damped, over-damped
 (struct spring (stiffness damping) #:transparent)

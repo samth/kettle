@@ -319,16 +319,16 @@
               bordered)))
 
   (hcat 'top
-        (pad 0 2 0 0
-             (render-list "Citrus Fruits to Try"
+        (pad (render-list "Citrus Fruits to Try"
                           (showcase-model-list1-items self)
                           (showcase-model-list1-cursor self)
-                          (eq? foc 'list1)))
-        (pad 0 2 0 0
-             (render-list "Lip Gloss Vendors"
+                          (eq? foc 'list1))
+             #:right 2)
+        (pad (render-list "Lip Gloss Vendors"
                           (showcase-model-list2-items self)
                           (showcase-model-list2-cursor self)
-                          (eq? foc 'list2)))
+                          (eq? foc 'list2))
+             #:right 2)
         (render-dialog (showcase-model-dialog-active self)
                        (eq? foc 'dialog))))
 

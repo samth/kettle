@@ -15,9 +15,7 @@
 
 (require racket/match
          racket/format
-         kettle/program
-         kettle/image
-         kettle/style)
+         kettle)
 
 (define-kettle-program window-size-demo
   #:fields ([width 0] [height 0])
