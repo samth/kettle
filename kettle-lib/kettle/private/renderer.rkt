@@ -313,6 +313,8 @@
                       (ubuf-clip-x buf) (ubuf-clip-y buf)
                       (ubuf-clip-w buf) (ubuf-clip-h buf)
                       stream #t 0 0 #f #f #f)
+  ;; Reset SGR before clearing so erase uses default attributes
+  (display "\x1b[0m" stream)
   (clear-to-end-of-screen stream)
   (flush-output stream))
 

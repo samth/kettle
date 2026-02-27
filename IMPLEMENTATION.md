@@ -136,7 +136,7 @@ Iterates row by row, emitting ANSI escape sequences on style transitions:
 
 ### Diff and Output
 
-`render-image!` compares the new ANSI string against the previous frame. If unchanged, no output is emitted. Otherwise: `move-cursor-home` (ESC[H), write the string, `clear-to-end-of-screen` (ESC[J), flush.
+`render-image!` uses `display-ubuf-cells` from `tui-ubuf` to emit the cell buffer. Between rows, tui-ubuf emits `ESC[0m ESC[K \r\n` (reset attributes, erase to end of line, newline) to prevent styled content from bleeding into the right margin. After all rows, the renderer emits `ESC[0m` (reset) followed by `ESC[J` (clear to end of screen) to clean up remaining lines with default attributes.
 
 `image->string` does paint + emit without diff, for testing.
 
