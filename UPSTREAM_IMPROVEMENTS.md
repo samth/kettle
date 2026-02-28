@@ -29,16 +29,56 @@ and `ubuf-stride`/`ubuf-cells`/`ubuf-outbuf`/`ubuf-clip-*` from
 rows to reset attributes. However, it doesn't emit `\x1b[K` (erase to end of
 line), so the area to the right of each row retains whatever SGR attributes were
 active from the last cell. When the rendered image is narrower than the terminal,
-this causes visible differences in background appearance between rows with styled
-content and rows without. Additionally, the between-row reset only cleared `fg`
-and `bg` tracking state, not `bold`, `underline`, `italic`, or `blink`, so those
-attributes could carry over incorrectly.
+this causes styled backgrounds to bleed to the right edge of the terminal.
+Additionally, the between-row reset only cleared `fg` and `bg` tracking state,
+not `bold`, `underline`, `italic`, or `blink`, so those attributes could carry
+over incorrectly to the next row.
+
+**Example:** The following program draws a 10-column, 3-row ubuf in linear mode
+with colored backgrounds on rows 0 and 2. Without the fix, the red and green
+backgrounds extend to the right edge of the terminal instead of stopping at
+column 10.
+
+```racket
+#lang racket/base
+(require tui/ubuf)
+
+(define width 10)
+(define height 3)
+(define buf (make-ubuf width height))
+
+;; Row 0: red background
+(for ([col (in-range width)])
+  (ubuf-putchar! buf col 0
+                 #:char (if (< col 5) #\H #\space)
+                 #:fg 15 #:bg 1))
+
+;; Row 1: default colors
+(for ([col (in-range width)])
+  (ubuf-putchar! buf col 1 #:char #\space #:fg 7 #:bg 0))
+
+;; Row 2: green background
+(for ([col (in-range width)])
+  (ubuf-putchar! buf col 2
+                 #:char (if (< col 5) #\W #\space)
+                 #:fg 0 #:bg 2))
+
+(void (display-ubuf! buf #:linear #t #:only-dirty #f))
+(newline)
+```
+
+The between-row output without the fix is `ESC[0m \r\n` — the `ESC[0m` resets
+SGR attributes for subsequent characters, but the terminal has already painted
+the rest of the current line with the active background. Adding `ESC[K` (erase
+to end of line) after the reset clears the remainder of the line using the
+now-default background.
 
 **Fix applied:** Changed the between-row sequence to `\x1b[0m\x1b[K\r\n` and
-added resets for all tracked attribute state. Kettle's renderer also now emits
-`\x1b[0m` before `clear-to-end-of-screen` to ensure the final clear uses default
-attributes. The fix is in the local clone at `tui-ubuf/`. This should be
-upstreamed.
+added resets for all tracked attribute state (`last-bold`, `last-underline`,
+`last-italic`, `last-blink` in addition to `last-fg` and `last-bg`). Kettle's
+renderer also now emits `\x1b[0m` before `clear-to-end-of-screen` to ensure the
+final clear uses default attributes. The fix is in the local clone at
+`tui-ubuf/`. This should be upstreamed.
 
 ### 3. No `#:reverse` attribute support in `ubuf-putchar!`
 
