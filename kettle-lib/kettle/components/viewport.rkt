@@ -93,16 +93,14 @@
       (let* ([top (max 0 y)]
              [bottom (min (+ y h) (length lines))]
              [visible (take (drop lines top) (- bottom top))])
-        (if (and (> longest w) (> x 0))
-            (map (lambda (line)
-                   (define len (visible-length line))
-                   (define start (min x len))
-                   (define end (min (+ start w) len))
-                   (if (>= start len)
-                       ""
-                       (substring line start end)))
-                 visible)
-            visible))
+        (map (lambda (line)
+               (define shifted
+                 (if (> x 0)
+                     (let ([len (string-length line)])
+                       (if (>= x len) "" (substring line x)))
+                     line))
+               (truncate-text shifted w #:ellipsis ""))
+             visible))
       '()))
 
 ;;; Status checks

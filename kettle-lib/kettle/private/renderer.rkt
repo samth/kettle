@@ -107,7 +107,8 @@
 ;; Uses grapheme cluster segmentation so combining marks, ZWJ sequences,
 ;; and skin-tone modifiers are painted as part of their base character.
 (define (paint-text! buf str x y sty)
-  (define len (string-length str))
+  (define str* (string-normalize-nfc str))
+  (define len (string-length str*))
   (define col x)
   (define i 0)
   ;; Track inline ANSI style overrides (built in reverse with cons)
@@ -118,23 +119,23 @@
   (define gs 0) ; grapheme-step state
   (let loop ()
     (when (< i len)
-      (define ch (string-ref str i))
+      (define ch (string-ref str* i))
       (cond
         ;; ANSI escape sequence -- track the codes
         [(char=? ch #\u001B)
          (set! i (add1 i))
-         (when (and (< i len) (char=? (string-ref str i) #\[))
+         (when (and (< i len) (char=? (string-ref str* i) #\[))
            (set! i (add1 i))
            (define code-start i)
            (let inner ()
              (when (< i len)
-               (define c (string-ref str i))
+               (define c (string-ref str* i))
                (define code (char->integer c))
                (set! i (add1 i))
                (cond
                  [(and (>= code #x40) (<= code #x7E))
                   ;; End of escape - extract the code string
-                  (define code-str (substring str code-start (sub1 i)))
+                  (define code-str (substring str* code-start (sub1 i)))
                   (cond
                     ;; Reset
                     [(string=? code-str "0")

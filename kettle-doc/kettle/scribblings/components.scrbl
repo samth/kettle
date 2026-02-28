@@ -23,12 +23,9 @@ A scrollable list with keyboard navigation (arrow keys and vim-style j/k).
                          [#:height height exact-positive-integer? 10]) list-view?]{
   Create a scrollable list view.}
 
-@defproc[(list-view-update [lv list-view?] [msg msg?]) (or/c list-view? cmd?)]{
-  Handle input for the list view. Returns either an updated list view
-  (no command) or @racket[(cmd list-view command)].}
+The list view implements @racket[gen:kettle-model], so use @racket[update]
+and @racket[view] to handle input and render.
 
-@defproc[(list-view-render [lv list-view?]) string?]{
-  Render the list view to a string.}
 
 @defproc[(list-view-get-selected [lv list-view?]) any/c]{
   Get the currently selected item.}
@@ -43,8 +40,8 @@ Table rendering with borders, headers, and auto-calculated column widths.
                      [#:border border (or/c border? #f) #f]) table?]{
   Create a table.}
 
-@defproc[(table-render [tbl table?]) string?]{
-  Render the table to a string.}
+@defproc[(table-render [tbl table?]) image?]{
+  Render the table to an image.}
 
 @section{Spinner}
 @defmodule[kettle/components/spinner]
@@ -69,11 +66,11 @@ Customizable progress bar with percentage display.
                         [#:show-percentage show-pct boolean? #t]) progress?]{
   Create a progress bar.}
 
-@defproc[(progress-set-percent! [pb progress?] [pct (between/c 0.0 1.0)]) void?]{
-  Set the progress percentage.}
+@defproc[(progress-set-percent [pb progress?] [pct (between/c 0.0 1.0)]) progress?]{
+  Return a new progress bar with the given percentage.}
 
-@defproc[(progress-increment! [pb progress?] [amount number?]) void?]{
-  Increment the progress by @racket[amount].}
+@defproc[(progress-increment [pb progress?] [amount number?]) progress?]{
+  Return a new progress bar incremented by @racket[amount].}
 
 @section{Text Input}
 @defmodule[kettle/components/textinput]

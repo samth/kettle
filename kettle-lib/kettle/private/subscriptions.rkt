@@ -8,7 +8,8 @@
 ;; Subscriptions produce messages at specified intervals or from external sources.
 
 (require racket/match
-         "protocol.rkt")
+         "protocol.rkt"
+         "terminal.rkt")
 
 ;; Subscription constructors
 (provide every
@@ -59,18 +60,28 @@
                    (loop)))))
      (lambda () (kill-thread thd))]
 
-    ;; Resize is handled by the program runner via window-size-msg.
-    ;; This subscription type is a marker; the program runner
-    ;; sends the message on SIGWINCH/resize events.
-    [(sub:resize _ make-msg) (void)]
+    [(sub:resize _ make-msg)
+     (define thd
+       (thread (lambda ()
+                 (define last-size (get-terminal-size))
+                 (let loop ()
+                   (sleep 0.25)
+                   (define size (get-terminal-size))
+                   (unless (equal? size last-size)
+                     (set! last-size size)
+                     (send-msg! (make-msg (car size) (cdr size))))
+                   (loop)))))
+     (lambda () (kill-thread thd))]
 
     [(sub:port _ port make-msg)
      (define thd
        (thread (lambda ()
+                 (define buf (make-bytes 4096))
                  (let loop ()
-                   (define data (read-bytes-avail!* (make-bytes 4096) port))
-                   (when (and data (not (eof-object? data)))
-                     (send-msg! (make-msg data))
+                   (sync port)
+                   (define count (read-bytes-avail!* buf port))
+                   (when (and count (not (eof-object? count)) (> count 0))
+                     (send-msg! (make-msg (subbytes buf 0 count)))
                      (loop))))))
      (lambda () (kill-thread thd))]))
 

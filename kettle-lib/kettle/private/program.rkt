@@ -15,7 +15,6 @@
          racket/format
          racket/async-channel
          (for-syntax racket/base racket/list racket/syntax)
-         (only-in racket/system system)
          "protocol.rkt"
          "terminal.rkt"
          "input.rkt"
@@ -386,11 +385,14 @@
       (with-handlers ([exn:fail?
                        (lambda (e)
                          (handle-kettle-error 'exec-command e))])
-        (define cmd-line (if (null? exec-args)
-                             exec-prog
-                             (string-append exec-prog " "
-                                            (string-join exec-args " "))))
-        (system cmd-line)))
+        (define exe (find-executable-path exec-prog))
+        (unless exe
+          (error 'exec-cmd "executable not found: ~a" exec-prog))
+        (define-values (proc stdout stdin stderr)
+          (apply subprocess
+                 (current-output-port) (current-input-port) (current-error-port)
+                 exe exec-args))
+        (subprocess-wait proc)))
     (lambda ()
       ;; Always restore
       (when restore-fn

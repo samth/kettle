@@ -112,6 +112,14 @@
       (make-string (+ w 2) (string-ref b-top 0))))
   (define top-line (string-append b-tl (string-join top-segments " ") b-tr))
 
+  (define hs (table-header-style tbl))
+  (define rs (table-row-style tbl))
+  (define bc (table-border-color tbl))
+  (define border-sty (and bc (make-style #:foreground bc)))
+
+  (define (maybe-style s img)
+    (if s (styled s img) img))
+
   ;; Headers
   (define header-lines
     (if (null? headers)
@@ -122,12 +130,13 @@
             (for/list ([w (in-list widths)])
               (make-string (+ w 2) (string-ref b-top 0))))
           (define sep-line (string-append b-ml (string-join sep-segments " ") b-mr))
-          (list header-row sep-line))))
+          (list (maybe-style hs (text header-row))
+                (maybe-style border-sty (text sep-line))))))
 
   ;; Data rows
   (define data-lines
     (for/list ([row (in-list rows)])
-      (render-row row widths bdr b-left b-right b-left)))
+      (maybe-style rs (text (render-row row widths bdr b-left b-right b-left)))))
 
   ;; Bottom border
   (define bottom-segments
@@ -135,4 +144,6 @@
       (make-string (+ w 2) (string-ref b-bottom 0))))
   (define bottom-line (string-append b-bl (string-join bottom-segments " ") b-br))
 
-  (apply vcat 'left (map text (append (list top-line) header-lines data-lines (list bottom-line)))))
+  (define top-img (maybe-style border-sty (text top-line)))
+  (define bottom-img (maybe-style border-sty (text bottom-line)))
+  (apply vcat 'left (append (list top-img) header-lines data-lines (list bottom-img))))

@@ -52,6 +52,7 @@
          key-press?
          key-repeat?
          key-release?
+         (struct-out kitty-query-response-msg)
          (struct-out paste-msg)
          (struct-out window-size-msg)
          (struct-out tick-msg)

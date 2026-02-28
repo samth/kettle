@@ -51,8 +51,11 @@
 
 (define (join-horizontal position . blocks)
   "Join text blocks horizontally at the given vertical position."
-  (when (null? blocks)
-    (return ""))
+  (if (null? blocks)
+      ""
+      (join-horizontal* position blocks)))
+
+(define (join-horizontal* position blocks)
   (define block-lines (map split-string-by-newline blocks))
   (define block-widths
     (map (lambda (ls)
@@ -78,12 +81,13 @@
 
   (string-join result "\n"))
 
-(define (return val) val)  ; just returns
-
 (define (join-vertical position . blocks)
   "Join text blocks vertically at the given horizontal position."
-  (when (null? blocks)
-    (return ""))
+  (if (null? blocks)
+      ""
+      (join-vertical* position blocks)))
+
+(define (join-vertical* position blocks)
   (define block-lines (map split-string-by-newline blocks))
   (define max-width
     (apply max

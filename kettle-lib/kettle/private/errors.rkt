@@ -27,7 +27,7 @@
 (define current-error-handler
   (make-parameter
    (lambda (where condition)
-     (log-warning "kettle ~a: ~a" where (exn-message condition)))))
+     (log-error "kettle ~a: ~a" where (exn-message condition)))))
 
 (define (handle-kettle-error where condition)
   ((current-error-handler) where condition))

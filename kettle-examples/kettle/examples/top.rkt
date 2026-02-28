@@ -1,6 +1,6 @@
 #lang racket/base
 
-;; top.rkt -- A top/htop-style process viewer.
+;; top.rkt -- A top/htop-style process viewer (Linux only).
 ;; Original Kettle example (no cl-tuition counterpart).
 ;;
 ;; Showcases Kettle's suitability for real system tools: reads /proc directly for
@@ -10,6 +10,8 @@
 ;;
 ;; Demonstrates subscriptions (timers, resize), styled tables, sorting,
 ;; and responsive layout with flex images.
+;;
+;; Requires Linux (/proc filesystem).
 
 (require racket/file
          racket/format
@@ -616,6 +618,8 @@
 ;;; ============================================================
 
 (module+ main
+  (unless (directory-exists? "/proc/stat")
+    (error 'top "this program requires Linux (/proc filesystem not found)"))
   (program-run (make-program (make-top-state)
                              #:alt-screen #t
                              #:mouse 'cell-motion)))

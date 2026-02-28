@@ -207,7 +207,7 @@
     [`(,(? (lambda (t) (memq t '(h4 h5 h6)))) ,_ . ,children)
      (render-heading ms margin-str 3 children)]
     [`(p ,_ . ,children)
-     (render-paragraph ms margin-str children)]
+     (render-paragraph ms margin-str content-width children)]
     [`(ul ,_ . ,children)
      (render-unordered-list ms margin-str children)]
     [`(ol ,_ . ,children)
@@ -245,13 +245,16 @@
                           [bold? (render-styled (make-style #:bold #t) full-text)]
                           [else full-text]))))
 
-(define (render-paragraph ms margin-str children)
+(define (render-paragraph ms margin-str content-width children)
   (define txt (render-inlines ms children))
+  (define wrapped (wrap-text txt content-width))
   (define text-color (markdown-style-text-color ms))
-  (list (string-append margin-str
-                        (if text-color
-                            (render-styled (make-style #:foreground text-color) txt)
-                            txt))))
+  (define wrapped-lines (string-split wrapped "\n" #:trim? #f))
+  (for/list ([line (in-list wrapped-lines)])
+    (string-append margin-str
+                    (if text-color
+                        (render-styled (make-style #:foreground text-color) line)
+                        line))))
 
 (define (render-unordered-list ms margin-str items)
   (apply append

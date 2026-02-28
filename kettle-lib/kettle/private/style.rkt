@@ -302,21 +302,22 @@
   "Calculate visible display width of STR, excluding ANSI escapes.
    Uses grapheme cluster segmentation so combining marks, ZWJ sequences,
    and skin-tone modifiers are correctly counted as part of their base character."
+  (define str* (string-normalize-nfc str))
   (define result 0)
   (define i 0)
-  (define len (string-length str))
+  (define len (string-length str*))
   (define gs 0) ; grapheme-step state (0 = initial)
   (let loop ()
     (when (< i len)
-      (define ch (string-ref str i))
+      (define ch (string-ref str* i))
       (cond
         [(char=? ch #\u001B)
          (set! i (add1 i))
-         (when (and (< i len) (char=? (string-ref str i) #\[))
+         (when (and (< i len) (char=? (string-ref str* i) #\[))
            (set! i (add1 i))
            (let inner ()
              (when (< i len)
-               (define code (char->integer (string-ref str i)))
+               (define code (char->integer (string-ref str* i)))
                (set! i (add1 i))
                (unless (and (>= code #x40) (<= code #x7E))
                  (inner)))))]
@@ -554,30 +555,31 @@
    "\n"))
 
 (define (truncate-text text width #:ellipsis [ellipsis "\u2026"])
+  (define text* (string-normalize-nfc text))
   (define maxw (max 0 width))
   (define ellw (visible-length ellipsis))
   (define budget (max 0 (- maxw ellw)))
   (define w 0)
   (define i 0)
-  (define len (string-length text))
+  (define len (string-length text*))
   (define gs 0) ; grapheme-step state
   ;; Track the string position where we'd cut (right before the cluster
   ;; that doesn't fit). Updated at each new cluster boundary.
   (define cut-pos 0)
   (let loop ()
     (cond
-      [(>= i len) text] ; reached end without exceeding budget — return original
+      [(>= i len) text*] ; reached end without exceeding budget — return normalized
       [else
-       (define ch (string-ref text i))
+       (define ch (string-ref text* i))
        (cond
          ;; ANSI escape: skip over it (will be included via substring)
          [(char=? ch #\u001B)
           (set! i (add1 i))
-          (when (and (< i len) (char=? (string-ref text i) #\[))
+          (when (and (< i len) (char=? (string-ref text* i) #\[))
             (set! i (add1 i))
             (let inner ()
               (when (< i len)
-                (define code (char->integer (string-ref text i)))
+                (define code (char->integer (string-ref text* i)))
                 (set! i (add1 i))
                 (unless (and (>= code #x40) (<= code #x7E))
                   (inner)))))
@@ -597,7 +599,7 @@
                    (set! i (add1 i))
                    (loop))
                  ;; Doesn't fit — truncate before this cluster
-                 (string-append (substring text 0 cut-pos) ellipsis))]
+                 (string-append (substring text* 0 cut-pos) ellipsis))]
             ;; Continuation of current cluster (combining mark, ZWJ, modifier)
             [else
              (set! gs new-gs)
@@ -644,8 +646,20 @@
       [(ansi) (add-text! txt)]
       [(newline) (emit-line!)]
       [(space)
-       (when (and (not need-space) (not (string=? line "")))
-         (set! need-space #t))]
+       (cond
+         [normalize-spaces
+          (when (and (not need-space) (not (string=? line "")))
+            (set! need-space #t))]
+         [else
+          (define sw (visible-length txt))
+          (if (<= (+ w sw) maxw)
+              (begin
+                (ensure-indent!)
+                (add-text! txt)
+                (set! w (+ w sw)))
+              (begin
+                (emit-line!)
+                (ensure-indent!)))])]
       [(word)
        (define ww (visible-length txt))
        (define sp (if need-space 1 0))

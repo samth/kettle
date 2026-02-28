@@ -59,16 +59,19 @@
                        #:max-lines [max-lines 1000])
   (textarea width height (vector "") 0 0 #f placeholder show-ln prompt char-limit max-lines))
 
+;; Sentinel for "not supplied" in ta-copy
+(define ta-unset (gensym 'unset))
+
 ;; Copy a textarea, cloning its line buffer so the original is unaffected
-(define (ta-copy ta #:lines [lines #f] #:row [row #f] #:col [col #f] #:focused? [focused? #f])
+(define (ta-copy ta #:lines [lines #f] #:row [row #f] #:col [col #f] #:focused? [focused? ta-unset])
   (textarea (textarea-width ta)
             (textarea-height ta)
             (or lines (vector-copy (textarea-lines ta)))
             (or row (textarea-row ta))
             (or col (textarea-col ta))
-            (if focused?
-                focused?
-                (textarea-focused? ta))
+            (if (eq? focused? ta-unset)
+                (textarea-focused? ta)
+                focused?)
             (textarea-placeholder ta)
             (textarea-show-line-numbers? ta)
             (textarea-prompt ta)
@@ -87,12 +90,28 @@
       (string-join (vector->list lines) "\n")))
 
 (define (textarea-insert-string ta str)
+  ;; Enforce char-limit: truncate insertion if it would exceed the limit
+  (define limit (textarea-char-limit ta))
+  (define str*
+    (if (and limit (> limit 0))
+        (let ([current-len (textarea-total-length ta)]
+              [insert-len (string-length str)])
+          (define remaining (max 0 (- limit current-len)))
+          (if (<= insert-len remaining)
+              str
+              (substring str 0 remaining)))
+        str))
+  (if (string=? str* "")
+      ta
+      (textarea-insert-string* ta str*)))
+
+(define (textarea-insert-string* ta str*)
   (define ta2 (ta-copy ta))
   (define lines (textarea-lines ta2))
   (define row (textarea-row ta2))
   (define col (textarea-col ta2))
   (define current-line (vector-ref lines row))
-  (define new-lines (split-string-by-newline str))
+  (define new-lines (split-string-by-newline str*))
 
   (if (= (length new-lines) 1)
       ;; Single line insert
@@ -296,6 +315,13 @@
     [else ta]))
 
 (define (ta-newline ta)
+  ;; Enforce max-lines
+  (define ml (textarea-max-lines ta))
+  (if (and ml (> ml 0) (>= (textarea-line-count ta) ml))
+      ta
+      (ta-newline* ta)))
+
+(define (ta-newline* ta)
   (define ta2 (ta-copy ta))
   (define lines (textarea-lines ta2))
   (define row (textarea-row ta2))

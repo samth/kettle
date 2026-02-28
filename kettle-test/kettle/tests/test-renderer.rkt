@@ -5,7 +5,9 @@
 
 (require rackunit
          racket/string
-         kettle)
+         kettle
+         kettle/components/textarea
+         kettle/components/viewport)
 
 (provide (all-defined-out))
 
@@ -116,15 +118,16 @@
 
 ;; truncate-text
 
-(test-case "truncate-text: no truncation returns original string"
+(test-case "truncate-text: no truncation returns equivalent string"
   (define s "hello")
-  (check-eq? (truncate-text s 10) s "should return same string object"))
+  (check-equal? (truncate-text s 10) s "should return equal string"))
 
 (test-case "truncate-text: combining marks not split"
   ;; "café" = width 4, truncate to 3 should give "caf…" not "café" split mid-cluster
   (check-equal? (truncate-text "cafe\u0301" 4 #:ellipsis "…") "caf…")
   ;; truncate to 5 should return whole string (width 4 + 1 for ellipsis fits in 5)
-  (check-equal? (truncate-text "cafe\u0301" 5 #:ellipsis "…") "cafe\u0301"))
+  ;; NFC normalizes "cafe\u0301" to "café"
+  (check-equal? (truncate-text "cafe\u0301" 5 #:ellipsis "…") "caf\u00e9"))
 
 (test-case "truncate-text: ZWJ emoji not split"
   ;; "👨‍👩‍👧‍👦 hi" has family(2) space(1) h(1) i(1) = 5
@@ -160,3 +163,67 @@
   (define img (text "👋🏽"))
   (check-equal? (image-w img) 2)
   (check-equal? (image-h img) 1))
+
+;;; ============================================================
+;;; NFC normalization in rendering (#4)
+;;; ============================================================
+
+(test-case "renderer: combining marks normalized via NFC"
+  ;; e + combining acute should render as é (single codepoint)
+  (check-true (string-contains? (image->string (text "e\u0301")) "\u00e9")))
+
+;;; ============================================================
+;;; wrap-text #:normalize-spaces (#5)
+;;; ============================================================
+
+(test-case "wrap-text: normalize-spaces #f preserves whitespace"
+  (check-equal? (wrap-text "a   b" 80 #:normalize-spaces #f) "a   b"))
+
+(test-case "wrap-text: normalize-spaces #t collapses whitespace"
+  (check-equal? (wrap-text "a   b" 80 #:normalize-spaces #t) "a b"))
+
+;;; ============================================================
+;;; join-horizontal/join-vertical empty args (#13)
+;;; ============================================================
+
+(test-case "join-horizontal: no blocks returns empty string"
+  (check-equal? (join-horizontal 'top) ""))
+
+(test-case "join-vertical: no blocks returns empty string"
+  (check-equal? (join-vertical 'left) ""))
+
+;;; ============================================================
+;;; textarea blur and limits (#7)
+;;; ============================================================
+
+(test-case "textarea-blur: sets focused? to #f"
+  (define ta (textarea-focus (make-textarea)))
+  (check-true (textarea-focused? ta))
+  (define blurred (textarea-blur ta))
+  (check-false (textarea-focused? blurred)))
+
+(test-case "textarea: char-limit enforced"
+  (define ta (make-textarea #:char-limit 5))
+  (define ta2 (textarea-insert-string ta "hello world"))
+  (check-equal? (textarea-value ta2) "hello"))
+
+(test-case "textarea: max-lines enforced"
+  (define ta (make-textarea #:max-lines 2))
+  (define ta2 (textarea-insert-string (textarea-focus ta) "line1"))
+  ;; Insert a newline (must be focused for key input)
+  (define ta3 (update ta2 (key-msg 'enter #f #f)))
+  (define ta4 (textarea-insert-string ta3 "line2"))
+  ;; Third newline should be blocked
+  (define ta5 (update ta4 (key-msg 'enter #f #f)))
+  (check-equal? (textarea-line-count ta5) 2))
+
+;;; ============================================================
+;;; viewport width enforcement (#6)
+;;; ============================================================
+
+(test-case "viewport: width enforced even at x-offset 0"
+  (define vp (make-viewport #:width 10 #:height 3
+                            #:content "this is a long line that exceeds viewport width"))
+  (define img (view vp))
+  ;; The rendered output should not exceed viewport width
+  (check-true (<= (image-w img) 10)))

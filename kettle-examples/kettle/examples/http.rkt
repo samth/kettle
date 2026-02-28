@@ -41,8 +41,8 @@
              ;; Parse status code from "HTTP/1.1 200 OK"
              (define code
                (and first-line
-                    (regexp-match #rx"[0-9]+" first-line)
-                    (string->number (car (regexp-match #rx"[0-9]+" first-line)))))
+                    (let ([m (regexp-match #rx"HTTP/[^ ]+ ([0-9]+)" first-line)])
+                      (and m (string->number (second m))))))
              (http-result (or code 0))))))
   #:update (lambda (self msg)
     (match msg
