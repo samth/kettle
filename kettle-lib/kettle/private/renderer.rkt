@@ -16,17 +16,8 @@
          racket/string
          (prefix-in ansi: ansi/ansi)
          (only-in tui/ubuf
-                  make-ubuf ubuf? display-ubuf!
-                  ubuf-putchar! ubuf-clear!
-                  ubuf-display-linear?
-                  ubuf-display-only-dirty?
-                  ubuf-display-clear-dirty?
-                  ubuf-display-position)
-         (only-in tui/ubuf/ubuf-struct
-                  ubuf-stride ubuf-cells ubuf-outbuf
-                  ubuf-clip-x ubuf-clip-y ubuf-clip-w ubuf-clip-h)
-         (only-in tui/ubuf/vt-output
-                  display-ubuf-cells)
+                  make-ubuf ubuf?
+                  ubuf-putchar! ubuf-clear!)
          "style.rkt"
          "image.rkt")
 
@@ -291,7 +282,7 @@
 
 (define (cell-buffer->string buf)
   (define out (open-output-string))
-  (display-ubuf! buf out #:linear #t #:only-dirty #f #:clear-dirty #f)
+  (display buf out)
   (get-output-string out))
 
 ;;; ============================================================
@@ -325,12 +316,7 @@
   (paint! buf img 0 0)
   (define stream (renderer-output-stream r))
   (move-cursor-home stream)
-  ;; Use display-ubuf-cells directly with last-newline? #f to avoid
-  ;; a trailing \r\n that would scroll the first row off screen.
-  (display-ubuf-cells (ubuf-stride buf) (ubuf-cells buf) (ubuf-outbuf buf)
-                      (ubuf-clip-x buf) (ubuf-clip-y buf)
-                      (ubuf-clip-w buf) (ubuf-clip-h buf)
-                      stream #t 0 0 #f #f #f)
+  (display buf stream)
   ;; Reset SGR before clearing so erase uses default attributes
   (display "\x1b[0m" stream)
   (clear-to-end-of-screen stream)

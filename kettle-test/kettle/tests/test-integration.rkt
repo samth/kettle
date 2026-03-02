@@ -480,11 +480,8 @@
   ;; The output should contain both text fragments
   (check-true (string-contains? rendered "long line here"))
   (check-true (string-contains? rendered "short"))
-  ;; tui-ubuf linear mode resets attributes at end of each row.
-  ;; With the erase-to-EOL patch, output contains ESC[0m ESC[K \r\n;
-  ;; without it, just ESC[0m \r\n.
-  (check-true (or (string-contains? rendered "\e[0m\e[K\r\n")
-                  (string-contains? rendered "\e[0m\r\n"))))
+  ;; tui-ubuf linear mode resets attributes at end of each row
+  (check-true (string-contains? rendered "\e[0m\r\n")))
 
 ;;; ============================================================
 ;;; Kitty keyboard protocol: key-event-msg / key-release-msg

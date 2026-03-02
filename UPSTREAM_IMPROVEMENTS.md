@@ -8,79 +8,7 @@ Kettle, and a suggested upstream fix.
 
 ## tui-ubuf
 
-### 1. `display-ubuf!` always emits trailing `\r\n` after last row
-
-**Problem:** `display-ubuf!` hardcodes `last-newline?` as `#t` when calling
-`display-ubuf-cells`. In linear mode, this appends `\x1b[0m\r\n` after every
-row including the last. For a full-screen image (e.g., 24 rows in a 24-row
-terminal), the trailing `\r\n` scrolls the first row off the top of the screen.
-
-**Workaround:** Kettle imports `display-ubuf-cells` from `tui/ubuf/vt-output`
-and `ubuf-stride`/`ubuf-cells`/`ubuf-outbuf`/`ubuf-clip-*` from
-`tui/ubuf/ubuf-struct`, then calls `display-ubuf-cells` directly with
-`last-newline?` set to `#f`. This requires knowledge of ubuf struct internals.
-
-**Suggested fix:** Add a `#:last-newline?` keyword argument to `display-ubuf!`
-(defaulting to `#t` for backward compatibility).
-
-### 2. `display-ubuf-cells` doesn't erase to end of line between rows
-
-**Problem:** In linear mode, `display-ubuf-cells` emits `\x1b[0m\r\n` between
-rows to reset attributes. However, it doesn't emit `\x1b[K` (erase to end of
-line), so the area to the right of each row retains whatever SGR attributes were
-active from the last cell. When the rendered image is narrower than the terminal,
-this causes styled backgrounds to bleed to the right edge of the terminal.
-Additionally, the between-row reset only cleared `fg` and `bg` tracking state,
-not `bold`, `underline`, `italic`, or `blink`, so those attributes could carry
-over incorrectly to the next row.
-
-**Example:** The following program draws a 10-column, 3-row ubuf in linear mode
-with colored backgrounds on rows 0 and 2. Without the fix, the red and green
-backgrounds extend to the right edge of the terminal instead of stopping at
-column 10.
-
-```racket
-#lang racket/base
-(require tui/ubuf)
-
-(define width 10)
-(define height 3)
-(define buf (make-ubuf width height))
-
-;; Row 0: red background
-(for ([col (in-range width)])
-  (ubuf-putchar! buf col 0
-                 #:char (if (< col 5) #\H #\space)
-                 #:fg 15 #:bg 1))
-
-;; Row 1: default colors
-(for ([col (in-range width)])
-  (ubuf-putchar! buf col 1 #:char #\space #:fg 7 #:bg 0))
-
-;; Row 2: green background
-(for ([col (in-range width)])
-  (ubuf-putchar! buf col 2
-                 #:char (if (< col 5) #\W #\space)
-                 #:fg 0 #:bg 2))
-
-(void (display-ubuf! buf #:linear #t #:only-dirty #f))
-(newline)
-```
-
-The between-row output without the fix is `ESC[0m \r\n` — the `ESC[0m` resets
-SGR attributes for subsequent characters, but the terminal has already painted
-the rest of the current line with the active background. Adding `ESC[K` (erase
-to end of line) after the reset clears the remainder of the line using the
-now-default background.
-
-**Fix applied:** Changed the between-row sequence to `\x1b[0m\x1b[K\r\n` and
-added resets for all tracked attribute state (`last-bold`, `last-underline`,
-`last-italic`, `last-blink` in addition to `last-fg` and `last-bg`). Kettle's
-renderer also now emits `\x1b[0m` before `clear-to-end-of-screen` to ensure the
-final clear uses default attributes. The fix is in the local clone at
-`tui-ubuf/`. This should be upstreamed.
-
-### 3. No `#:reverse` attribute support in `ubuf-putchar!`
+### 1. No `#:reverse` attribute support in `ubuf-putchar!`
 
 **Problem:** `ubuf-putchar!` supports `#:bold`, `#:italic`, `#:underline`, and
 `#:blink`, but not `#:reverse` (SGR 7). Reverse video is a common text
@@ -94,7 +22,7 @@ terminal fg/bg should be reversed (Kettle uses 7/0 as defaults).
 `tcf-reverse-*` flags in `attributes.rkt`, with SGR 7/27 output in
 `vt-output.rkt`.
 
-### 4. No `#:strikethrough` or `#:faint` attribute support
+### 2. No `#:strikethrough` or `#:faint` attribute support
 
 **Problem:** `ubuf-putchar!` doesn't support strikethrough (SGR 9) or faint/dim
 (SGR 2) text attributes.
@@ -105,23 +33,11 @@ when writing to the ubuf.
 **Suggested fix:** Add `#:strikethrough` and `#:faint` keywords to
 `ubuf-putchar!`.
 
-### 5. `display-ubuf-cells` not exported from main `tui/ubuf` module
-
-**Problem:** `display-ubuf-cells` is provided from `tui/ubuf/vt-output` but not
-re-exported from the main `tui/ubuf` module. Similarly, the ubuf struct
-accessors (`ubuf-stride`, `ubuf-cells`, etc.) are only available from
-`tui/ubuf/ubuf-struct`. Users who need `display-ubuf-cells` (e.g., to control
-`last-newline?`) must import from internal modules.
-
-**Suggested fix:** If `display-ubuf!` gains a `#:last-newline?` parameter, this
-becomes moot. Otherwise, consider re-exporting `display-ubuf-cells` from
-`tui/ubuf`.
-
 ---
 
 ## ansi
 
-### 6. `lex-lcd-input` didn't handle Kitty keyboard protocol (CSI u)
+### 1. `lex-lcd-input` didn't handle Kitty keyboard protocol (CSI u)
 
 **Problem:** The Kitty keyboard protocol uses `ESC[keycode;modifiers:event_type u`
 sequences. The colon sub-parameter separator and the `u` terminator were not
@@ -132,7 +48,7 @@ returned as `unknown-escape-sequence` values, with some bytes left in the port.
 struct, `kitty-keycode->value` mapping, and `decode-kitty-key` to
 `ansi/lcd-terminal.rkt`. This should be upstreamed.
 
-### 7. `lex-lcd-input` didn't handle bracketed paste
+### 2. `lex-lcd-input` didn't handle bracketed paste
 
 **Problem:** Bracketed paste uses `ESC[200~` to start and `ESC[201~` to end.
 `lex-lcd-input` parsed `ESC[200~` as a regular CSI tilde sequence, returning it
@@ -142,7 +58,7 @@ port buffer.
 **Fix applied:** Added a `bracketed-paste-event` struct and a regex match for
 `ESC[200~` that reads content until `ESC[201~`. This should be upstreamed.
 
-### 8. `lex-lcd-input` didn't handle Kitty query response (CSI ? N u)
+### 3. `lex-lcd-input` didn't handle Kitty query response (CSI ? N u)
 
 **Problem:** `ESC[?Nu` is the Kitty keyboard protocol query response, where N is
 a flags integer. The `?` prefix wasn't matched by any existing pattern.
@@ -151,7 +67,7 @@ a flags integer. The `?` prefix wasn't matched by any existing pattern.
 with value `'query-response` and the flags in the event-type field. This should
 be upstreamed.
 
-### 9. Backtab returned as Ctrl+Shift+I instead of `'backtab`
+### 4. Backtab returned as Ctrl+Shift+I instead of `'backtab`
 
 **Problem:** `ESC[Z` (backtab/shift-tab) was mapped to `(key #\I (set 'control
 'shift))` which is technically correct but inconvenient. Consumers must check for
@@ -160,7 +76,7 @@ the Ctrl+Shift+I combination instead of a simple `'backtab` symbol.
 **Fix applied:** Changed `["Z" (C-S- #\I)]` to `["Z" (simple-key 'backtab)]`.
 This should be upstreamed.
 
-### 10. Tab, Enter, and Escape not returned as named keys
+### 5. Tab, Enter, and Escape not returned as named keys
 
 **Problem:** `interpret-ascii-code` mapped all control characters uniformly to
 `(key <char> (set 'control))`. Tab (0x09) was returned as `(key #\I (set
@@ -172,7 +88,34 @@ names.
 (`'tab`), 0x0a/0x0d (`'enter`), and 0x1b (`'escape`). This should be
 upstreamed.
 
-### 11. Alt+key not recognized
+### 6. Mouse coordinates swapped (row/column)
+
+**Problem:** `decode-basic-mouse-event` and `decode-extended-mouse-event` passed
+local variables `x` and `y` to the `mouse-event` constructor in the wrong order.
+The struct fields are `(type button row column modifiers)`, but the constructors
+were called with `(mouse-event type button x y modifiers)` where `x` is the
+column and `y` is the row. This caused `mouse-event-row` to return the column
+and `mouse-event-column` to return the row.
+
+**Fix applied:** Changed all `mouse-event` constructor calls to pass `y x`
+(i.e., row then column) matching the struct field order. This should be
+upstreamed.
+
+### 7. Standalone Escape key not detected
+
+**Problem:** A lone `0x1b` byte (Escape key press) was not distinguished from
+the start of an escape sequence. When the user presses Escape without any
+following bytes, `lex-lcd-input` would block waiting for more input, or
+(depending on timing) would consume the next keypress as part of a malformed
+escape sequence.
+
+**Fix applied:** Added a check at the start of `lex-lcd-input`: if `0x1b` is the
+first byte and no more bytes are immediately available in the port buffer (via
+`peek-bytes-avail!*`), return `(simple-key 'escape)`. Terminal escape sequences
+arrive atomically (all bytes in one write), so a lone `0x1b` is unambiguous.
+This should be upstreamed.
+
+### 8. Alt+key not recognized
 
 **Problem:** `ESC` followed by a printable character (Alt+key in most terminals)
 was not handled. The ESC was consumed, and the following character fell through
@@ -188,11 +131,11 @@ should be upstreamed.
 
 All changes are on the `kettle-extensions` branch of
 <https://github.com/samth/racket-ansi> (also in the local clone at
-`/home/samth/sw/racket-scratch/extra-pkgs/ansi/`). The diff adds ~89 lines to
-`ansi/lcd-terminal.rkt`:
+`/home/samth/sw/racket-scratch/extra-pkgs/ansi/`):
 
 - New structs: `kitty-key-event`, `bracketed-paste-event`
 - New functions: `kitty-keycode->value`, `decode-kitty-key`
 - New regex patterns in `lex-lcd-input`: bracketed paste, Kitty query, CSI u,
-  Alt+key
-- Modified: `interpret-ascii-code` (tab/enter/escape), backtab mapping
+  Alt+key, standalone escape
+- Modified: `interpret-ascii-code` (tab/enter/escape), backtab mapping,
+  mouse-event constructor argument order (row/column swap fix)
