@@ -6,9 +6,9 @@
 ;; No terminal or threading dependencies.
 
 (require "private/test-program.rkt"
-         "private/protocol.rkt"
-         "private/image.rkt"
-         "private/renderer.rkt")
+         kettle/private/protocol
+         kettle/private/image
+         kettle/private/renderer)
 
 ;; Re-export the test harness API
 ;; Construction
@@ -37,6 +37,6 @@
          check-test-program-running
 
          ;; Re-export commonly needed protocol types for test authors
-         (all-from-out "private/protocol.rkt")
+         (all-from-out kettle/private/protocol)
          image?
          image->string)

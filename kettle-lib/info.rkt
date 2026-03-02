@@ -4,8 +4,7 @@
 (define version "1.0")
 (define deps '("base"
                "https://github.com/samth/racket-ansi.git?path=ansi#kettle-extensions"
-               "tui-ubuf"
-               "rackunit-lib"))
+               "tui-ubuf"))
 
 (define pkg-desc "implementation (no documentation) part of \"kettle\"")
 

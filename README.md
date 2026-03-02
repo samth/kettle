@@ -89,7 +89,7 @@ racket kettle-examples/kettle/examples/top.rkt
 ## Installation
 
 ```bash
-raco pkg install --auto ./kettle-lib ./kettle-components ./kettle-doc ./kettle
+raco pkg install --auto ./kettle-lib ./kettle-components ./kettle-test-lib ./kettle-doc ./kettle
 ```
 
 ## Package Structure

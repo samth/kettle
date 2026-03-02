@@ -111,8 +111,11 @@
 (define (make-session-name [prefix "kettle-test"])
   (set! session-counter (add1 session-counter))
   ;; Avoid dots in session names -- tmux interprets dots as target separators
-  (format "~a-~a_~a-~a" prefix (inexact->exact (truncate (current-inexact-milliseconds)))
-          (random 10000) session-counter))
+  (format "~a-~a_~a-~a"
+          prefix
+          (inexact->exact (truncate (current-inexact-milliseconds)))
+          (random 10000)
+          session-counter))
 
 ;;; ============================================================
 ;;; Session management
@@ -180,9 +183,7 @@
 ;; raw-string should be a string containing the bytes to inject.
 (define (tmux-send-raw session raw-string)
   (define temp-file (make-temporary-file "kt-raw~a"))
-  (call-with-output-file temp-file
-                         (lambda (out) (display raw-string out))
-                         #:exists 'replace)
+  (call-with-output-file temp-file (lambda (out) (display raw-string out)) #:exists 'replace)
   (tmux-run! "load-buffer" (path->string temp-file))
   (tmux-run! "paste-buffer" "-t" (tmux-session-name session))
   (with-handlers ([exn:fail? void])
@@ -274,7 +275,8 @@
   (when (regexp-match? (regexp-quote marker) captured)
     (with-check-info (['quit-key quit-key] ['marker marker] ['captured-pane captured])
                      (fail-check (format "TUI should no longer be visible after ~s, still contains ~s"
-                                         quit-key marker)))))
+                                         quit-key
+                                         marker)))))
 
 ;; Start multiple tmux sessions in parallel and call body with them.
 ;; Automatically kills all sessions on exit.
@@ -283,14 +285,15 @@
   (syntax-parse stx
     [(_ ([id:id path:expr . kw-args] ...) body:expr ...+)
      #:with (id-box ...) (generate-temporaries #'(id ...))
-     #'(let ()
-         (define id-box (box #f)) ...
-         (define threads
-           (list (thread (lambda () (set-box! id-box (tmux-start path . kw-args)))) ...))
-         (for-each thread-wait threads)
-         (define id (unbox id-box)) ...
-         (dynamic-wind
-          void
-          (lambda () body ...)
-          (lambda ()
-            (with-handlers ([exn:fail? void]) (tmux-kill id)) ...)))]))
+     #'
+     (let ()
+       (define id-box (box #f)) ...
+       (define threads (list (thread (lambda () (set-box! id-box (tmux-start path . kw-args)))) ...))
+       (for-each thread-wait threads)
+       (define id (unbox id-box)) ...
+       (dynamic-wind void
+                     (lambda ()
+                       body ...)
+                     (lambda ()
+                       (with-handlers ([exn:fail? void])
+                         (tmux-kill id)) ...)))]))

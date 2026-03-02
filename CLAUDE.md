@@ -4,10 +4,11 @@ A Racket library for building Terminal User Interfaces (TUIs). Ported from the C
 
 ## Package Structure
 
-Five-package layout:
+Six-package layout:
 - `kettle/` - Meta package (depends on kettle-lib and kettle-doc)
 - `kettle-lib/` - Implementation: `kettle/main.rkt` re-exports the full API
 - `kettle-doc/` - Scribble documentation in `kettle/scribblings/`
+- `kettle-test-lib/` - Test support library: `kettle/test` (headless) and `kettle/test-tmux` (tmux e2e)
 - `kettle-components/` - Extra components: datepicker, markdown, overlay, zone-manager
 - `kettle-examples/` - Example programs ported from cl-tuition and original demos
 
@@ -40,7 +41,7 @@ Components in `kettle-lib/kettle/components/`:
 
 ```bash
 # Install packages for development
-raco pkg install --auto ./kettle-lib ./kettle-doc ./kettle
+raco pkg install --auto ./kettle-lib ./kettle-test-lib ./kettle-doc ./kettle
 
 # Run with recompilation
 racket -y <filename>

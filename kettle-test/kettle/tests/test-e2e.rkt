@@ -19,6 +19,18 @@
 (define todo-path (collection-file-path "todo.rkt" "kettle" "examples"))
 (define viewer-path (collection-file-path "viewer.rkt" "kettle" "examples"))
 (define log-viewer-path (collection-file-path "log-viewer.rkt" "kettle" "examples"))
+(define snake-path (collection-file-path "snake.rkt" "kettle" "examples"))
+(define textinput-path (collection-file-path "textinput.rkt" "kettle" "examples"))
+(define textinput-form-path (collection-file-path "textinput-form.rkt" "kettle" "examples"))
+(define table-path (collection-file-path "table.rkt" "kettle" "examples"))
+(define list-path (collection-file-path "list.rkt" "kettle" "examples"))
+(define spinner-path (collection-file-path "spinner.rkt" "kettle" "examples"))
+(define progress-path (collection-file-path "progress.rkt" "kettle" "examples"))
+(define timer-path (collection-file-path "timer.rkt" "kettle" "examples"))
+(define borders-path (collection-file-path "borders.rkt" "kettle" "examples"))
+(define styled-path (collection-file-path "styled.rkt" "kettle" "examples"))
+(define window-size-path (collection-file-path "window-size.rkt" "kettle" "examples"))
+(define simple-path (collection-file-path "simple.rkt" "kettle" "examples"))
 
 ;; Guard: skip all tests if tmux is not available
 (define have-tmux?
@@ -312,6 +324,200 @@
                        (check-tmux-contains sk "KEY:x:legacy"))
                      (test-case "e2e kitty: quit with q"
                        (check-quit-exits sk "q" "KITTY-TEST-READY")))
+
+  ;;; ============================================================
+  ;;; Snake
+  ;;; ============================================================
+  (with-e2e-sessions ([sn snake-path #:width 80 #:height 24])
+                     (test-case "e2e snake: initial render shows score and controls"
+                       (tmux-wait-for sn "Score: 0" #:timeout 10)
+                       (check-tmux-contains sn "Score: 0")
+                       (check-tmux-contains sn "quit"))
+                     (test-case "e2e snake: restart resets score"
+                       ;; Let it run briefly, then restart
+                       (sleep 0.3)
+                       (tmux-send-keys sn "r")
+                       (tmux-wait-for sn "Score: 0" #:timeout 3)
+                       (check-tmux-contains sn "Score: 0"))
+                     (test-case "e2e snake: quit exits program"
+                       (check-quit-exits sn "q" "Score:")))
+
+  ;;; ============================================================
+  ;;; Text Input
+  ;;; ============================================================
+  (with-e2e-sessions ([sti textinput-path #:width 80 #:height 24])
+                     (test-case "e2e textinput: initial render"
+                       (tmux-wait-for sti "Type something" #:timeout 10)
+                       (check-tmux-contains sti "Type something"))
+                     (test-case "e2e textinput: type text and see echo"
+                       (tmux-type sti "hello")
+                       (tmux-wait-for sti "hello" #:timeout 3)
+                       (check-tmux-contains sti "hello"))
+                     (test-case "e2e textinput: submit with enter"
+                       (tmux-send-keys sti "Enter")
+                       (tmux-wait-for sti "You typed:" #:timeout 3)
+                       (check-tmux-contains sti "You typed:")
+                       (check-tmux-contains sti "hello"))
+                     (test-case "e2e textinput: any key exits after submit"
+                       ;; Program doesn't use alt-screen so output stays visible.
+                       ;; Check that the shell prompt appears indicating exit.
+                       (tmux-send-keys sti "x")
+                       (tmux-wait-for sti "$" #:timeout 3)))
+
+  ;;; ============================================================
+  ;;; Text Input Form
+  ;;; ============================================================
+  (with-e2e-sessions ([sf textinput-form-path #:width 80 #:height 24])
+                     (test-case "e2e textinput-form: initial render"
+                       (tmux-wait-for sf "Registration Form" #:timeout 10)
+                       (check-tmux-contains sf "Registration Form")
+                       (check-tmux-contains sf "Name:")
+                       (check-tmux-contains sf "Email:")
+                       (check-tmux-contains sf "Password:"))
+                     (test-case "e2e textinput-form: type in name field"
+                       (tmux-type sf "Alice")
+                       (tmux-wait-for sf "Alice" #:timeout 3)
+                       (check-tmux-contains sf "Alice"))
+                     (test-case "e2e textinput-form: tab to next field"
+                       (tmux-send-keys sf "Tab")
+                       (sleep 0.15)
+                       (tmux-type sf "alice@test.com")
+                       (tmux-wait-for sf "alice@test.com" #:timeout 3))
+                     (test-case "e2e textinput-form: submit shows data"
+                       (tmux-send-keys sf "Enter")
+                       (tmux-wait-for sf "Form Submitted" #:timeout 3)
+                       (check-tmux-contains sf "Form Submitted")
+                       (check-tmux-contains sf "Alice"))
+                     (test-case "e2e textinput-form: any key exits after submit"
+                       (check-quit-exits sf "x" "Form Submitted")))
+
+  ;;; ============================================================
+  ;;; Table
+  ;;; ============================================================
+  (with-e2e-sessions ([stb table-path #:width 80 #:height 24])
+                     (test-case "e2e table: initial render shows tables"
+                       (tmux-wait-for stb "Table Examples" #:timeout 10)
+                       (check-tmux-contains stb "Table Examples")
+                       (check-tmux-contains stb "Language")
+                       (check-tmux-contains stb "Alice")
+                       (check-tmux-contains stb "Press q to quit"))
+                     (test-case "e2e table: quit exits program"
+                       (check-quit-exits stb "q" "Table Examples")))
+
+  ;;; ============================================================
+  ;;; List
+  ;;; ============================================================
+  (with-e2e-sessions ([sls list-path #:width 80 #:height 24])
+                     (test-case "e2e list: initial render shows menu"
+                       (tmux-wait-for sls "What do you want for dinner?" #:timeout 10)
+                       (check-tmux-contains sls "What do you want for dinner?")
+                       (check-tmux-contains sls "Ramen")
+                       (check-tmux-contains sls "Pasta"))
+                     (test-case "e2e list: navigate with j/k"
+                       (tmux-send-keys sls "j")
+                       (sleep 0.15)
+                       (tmux-send-keys sls "j")
+                       (sleep 0.15)
+                       ;; Items should still be visible
+                       (check-tmux-contains sls "Ramen")
+                       (check-tmux-contains sls "Hamburgers"))
+                     (test-case "e2e list: enter selects item"
+                       ;; Navigate to a known item and select
+                       (tmux-send-keys sls "Enter")
+                       (tmux-wait-for sls "Sounds good to me" #:timeout 3)
+                       (check-tmux-contains sls "Sounds good to me")))
+
+  ;;; ============================================================
+  ;;; Spinner
+  ;;; ============================================================
+  (with-e2e-sessions ([ssp spinner-path #:width 80 #:height 24])
+                     (test-case "e2e spinner: initial render shows loading text"
+                       (tmux-wait-for ssp "Loading forever" #:timeout 10)
+                       (check-tmux-contains ssp "Loading forever")
+                       (check-tmux-contains ssp "press q to quit"))
+                     (test-case "e2e spinner: quit exits program"
+                       (check-quit-exits ssp "q" "Loading forever")))
+
+  ;;; ============================================================
+  ;;; Progress
+  ;;; ============================================================
+  (with-e2e-sessions ([spr progress-path #:width 80 #:height 24])
+                     (test-case "e2e progress: initial render shows progress bar"
+                       (tmux-wait-for spr "Press any key to quit" #:timeout 10)
+                       (check-tmux-contains spr "Press any key to quit"))
+                     (test-case "e2e progress: any key exits"
+                       ;; Program doesn't use alt-screen so output stays visible.
+                       (tmux-send-keys spr "x")
+                       (tmux-wait-for spr "$" #:timeout 3)))
+
+  ;;; ============================================================
+  ;;; Timer
+  ;;; ============================================================
+  (with-e2e-sessions ([stm timer-path #:width 80 #:height 24])
+                     (test-case "e2e timer: initial render shows countdown"
+                       (tmux-wait-for stm "Exiting in" #:timeout 10)
+                       (check-tmux-contains stm "Exiting in")
+                       (check-tmux-contains stm "seconds"))
+                     (test-case "e2e timer: stop pauses countdown"
+                       (tmux-send-keys stm "s")
+                       (sleep 0.3)
+                       ;; After stop, should still show remaining time
+                       (check-tmux-contains stm "Exiting in")
+                       (check-tmux-contains stm "Start"))
+                     (test-case "e2e timer: quit exits program"
+                       (check-quit-exits stm "q" "Exiting in")))
+
+  ;;; ============================================================
+  ;;; Borders
+  ;;; ============================================================
+  (with-e2e-sessions ([sbr borders-path #:width 80 #:height 24])
+                     (test-case "e2e borders: initial render shows demo"
+                       (tmux-wait-for sbr "Border Styles Demo" #:timeout 10)
+                       (check-tmux-contains sbr "Border Styles Demo")
+                       (check-tmux-contains sbr "Normal Border")
+                       (check-tmux-contains sbr "Press q to quit"))
+                     (test-case "e2e borders: quit exits program"
+                       (check-quit-exits sbr "q" "Border Styles Demo")))
+
+  ;;; ============================================================
+  ;;; Styled
+  ;;; ============================================================
+  (with-e2e-sessions ([sst styled-path #:width 80 #:height 24])
+                     (test-case "e2e styled: initial render shows styling demo"
+                       (tmux-wait-for sst "Kettle Styling Demo" #:timeout 10)
+                       (check-tmux-contains sst "Kettle Styling Demo")
+                       (check-tmux-contains sst "bold text")
+                       (check-tmux-contains sst "Red text")
+                       (check-tmux-contains sst "Press q to quit"))
+                     (test-case "e2e styled: quit exits program"
+                       (check-quit-exits sst "q" "Kettle Styling Demo")))
+
+  ;;; ============================================================
+  ;;; Window Size
+  ;;; ============================================================
+  (with-e2e-sessions ([swz window-size-path #:width 80 #:height 24])
+                     (test-case "e2e window-size: initial render shows dimensions"
+                       (tmux-wait-for swz "Terminal Size" #:timeout 10)
+                       (check-tmux-contains swz "Terminal Size")
+                       (check-tmux-contains swz "Width:")
+                       (check-tmux-contains swz "Height:")
+                       (check-tmux-contains swz "80")
+                       (check-tmux-contains swz "24"))
+                     (test-case "e2e window-size: quit exits program"
+                       (check-quit-exits swz "q" "Terminal Size")))
+
+  ;;; ============================================================
+  ;;; Simple (countdown timer)
+  ;;; ============================================================
+  (with-e2e-sessions ([ssm simple-path #:width 80 #:height 24])
+                     (test-case "e2e simple: initial render shows countdown"
+                       (tmux-wait-for ssm "will exit in" #:timeout 10)
+                       (check-tmux-contains ssm "will exit in")
+                       (check-tmux-contains ssm "seconds"))
+                     (test-case "e2e simple: quit exits program"
+                       ;; Program doesn't use alt-screen so output stays visible.
+                       (tmux-send-keys ssm "q")
+                       (tmux-wait-for ssm "$" #:timeout 3)))
 
   ;; Clean up temp files
   (for-each (lambda (f)

@@ -26,6 +26,7 @@ The name ``Kettle'' comes from the fact that a kettle makes TEA.
 @include-section["renderer.scrbl"]
 @include-section["program.scrbl"]
 @include-section["components.scrbl"]
+@include-section["testing.scrbl"]
 @include-section["porting-from-big-bang.scrbl"]
 
 @index-section[]

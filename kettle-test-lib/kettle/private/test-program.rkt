@@ -10,10 +10,10 @@
 
 (require racket/match
          rackunit
-         "protocol.rkt"
-         "renderer.rkt"
-         "image.rkt"
-         "subscriptions.rkt")
+         kettle/private/protocol
+         kettle/private/renderer
+         kettle/private/image
+         kettle/private/subscriptions)
 
 ;; Construction
 (provide make-test-program
@@ -170,7 +170,8 @@
 ;; Internal kettle-model wrapper for run-style programs (mirrors run-model from run.rkt)
 (struct test-run-model (value on-key-fn on-msg-fn view-fn stop-fn on-tick-fn tick-rate)
   #:methods gen:kettle-model
-  [(define (init m) m)
+  [(define (init m)
+     m)
    (define (update m msg)
      (cond
        ;; Check stop condition before processing
@@ -178,25 +179,34 @@
         (cmd m (quit-cmd))]
        ;; Key messages go to on-key handler
        [(and (key-msg? msg) (test-run-model-on-key-fn m))
-        (define-values (new-val cmd*) (extract-update-result ((test-run-model-on-key-fn m) (test-run-model-value m) msg)))
+        (define-values (new-val cmd*)
+          (extract-update-result ((test-run-model-on-key-fn m) (test-run-model-value m) msg)))
         (define new-model (struct-copy test-run-model m [value new-val]))
         (if (and (test-run-model-stop-fn m) ((test-run-model-stop-fn m) new-val))
             (cmd new-model (quit-cmd))
-            (if cmd* (cmd new-model cmd*) new-model))]
+            (if cmd*
+                (cmd new-model cmd*)
+                new-model))]
        ;; Tick messages go to on-tick handler (takes state only, no message)
        [(and (tick-msg? msg) (test-run-model-on-tick-fn m))
-        (define-values (new-val cmd*) (extract-update-result ((test-run-model-on-tick-fn m) (test-run-model-value m))))
+        (define-values (new-val cmd*)
+          (extract-update-result ((test-run-model-on-tick-fn m) (test-run-model-value m))))
         (define new-model (struct-copy test-run-model m [value new-val]))
         (if (and (test-run-model-stop-fn m) ((test-run-model-stop-fn m) new-val))
             (cmd new-model (quit-cmd))
-            (if cmd* (cmd new-model cmd*) new-model))]
+            (if cmd*
+                (cmd new-model cmd*)
+                new-model))]
        ;; All other messages go to on-msg handler
        [(test-run-model-on-msg-fn m)
-        (define-values (new-val cmd*) (extract-update-result ((test-run-model-on-msg-fn m) (test-run-model-value m) msg)))
+        (define-values (new-val cmd*)
+          (extract-update-result ((test-run-model-on-msg-fn m) (test-run-model-value m) msg)))
         (define new-model (struct-copy test-run-model m [value new-val]))
         (if (and (test-run-model-stop-fn m) ((test-run-model-stop-fn m) new-val))
             (cmd new-model (quit-cmd))
-            (if cmd* (cmd new-model cmd*) new-model))]
+            (if cmd*
+                (cmd new-model cmd*)
+                new-model))]
        [else m]))
    (define (view m)
      (if (test-run-model-view-fn m)
@@ -217,7 +227,8 @@
                                #:stop-when [stop-fn #f]
                                #:width [width 80]
                                #:height [height 24])
-  (define model (test-run-model initial-value on-key-fn on-msg-fn view-fn stop-fn on-tick-fn tick-rate))
+  (define model
+    (test-run-model initial-value on-key-fn on-msg-fn view-fn stop-fn on-tick-fn tick-rate))
   (make-test-program model #:width width #:height height))
 
 ;;; ============================================================

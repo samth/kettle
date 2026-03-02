@@ -8,9 +8,12 @@
 
 (define pkg-authors '(green))
 (define build-deps '("kettle-lib"
+                     "kettle-test-lib"
                      "htdp-doc"
                      "htdp-lib"
                      "racket-doc"
+                     "rackunit-doc"
+                     "rackunit-lib"
                      "scribble-lib"))
 (define update-implies '("kettle-lib"))
 
