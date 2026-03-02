@@ -14,6 +14,7 @@
 ;; Fetches a URL and displays the HTTP status code.
 
 (require racket/match
+         racket/list
          racket/format
          net/url
          kettle/program
