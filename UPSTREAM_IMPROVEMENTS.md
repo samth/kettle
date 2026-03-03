@@ -33,6 +33,22 @@ when writing to the ubuf.
 **Suggested fix:** Add `#:strikethrough` and `#:faint` keywords to
 `ubuf-putchar!`.
 
+### 3. Attribute tracking not reset at row boundaries
+
+**Problem:** In `vt-output.rkt`, the linear-mode row separator emits `\x1b[0m\r\n`
+(full SGR reset) between rows. After this, `last-fg` and `last-bg` are reset to
+`tcf-mask` (forcing re-emission), but `last-bold`, `last-italic`,
+`last-underline`, and `last-blink` are not. Since `\x1b[0m` turns off all
+attributes in the terminal, the tracking variables become out of sync with the
+actual terminal state. If row N has italic and row N+1 also has italic, the code
+thinks italic is already on and skips `\x1b[3m`, but the terminal already turned
+it off via the reset. Row N+1 renders without italic.
+
+**Fix applied:** Added `(set! last-bold tcf-mask)`, `(set! last-italic tcf-mask)`,
+`(set! last-underline tcf-mask)`, and `(set! last-blink tcf-mask)` after the
+existing `last-fg`/`last-bg` resets. This is in the local clone at `tui-ubuf/`.
+This should be upstreamed.
+
 ---
 
 ## ansi
