@@ -265,4 +265,5 @@
 
 (module+ test
   (require rackunit)
-  (run-benchmarks))
+  (parameterize ([current-output-port (open-output-string)])
+    (run-benchmarks)))

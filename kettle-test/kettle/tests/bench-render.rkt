@@ -176,7 +176,8 @@
 
 (module+ test
   (require rackunit)
-  (run-benchmarks)
+  (parameterize ([current-output-port (open-output-string)])
+    (run-benchmarks))
 
   ;; Assert that all scenarios meet the 15 fps target
   (define (check-fps label img w h)
