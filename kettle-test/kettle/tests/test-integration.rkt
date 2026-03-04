@@ -330,7 +330,7 @@
                                "\n"))
   (define lv (make-log-viewer-from-string content "test.log" #:width 40 #:height 12))
   (define tp (make-test-program lv))
-  (define view-str (test-program-view-string tp))
+  (define view-str (test-program-view-string/ansi tp))
   ;; Header uses reverse style (bold + reverse)
   ;; With default colors, reverse means fg=0 (black, SGR 30) and bg=7 (white, SGR 47)
   (check-true (string-contains? view-str "30") "header should have reversed fg (30)")

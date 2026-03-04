@@ -23,10 +23,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y tmux
 
       - name: Install packages
-        run: raco pkg install --auto --no-docs ./tui-ubuf ./kettle-lib ./kettle-test-lib ./kettle-components ./kettle-examples ./kettle-doc ./kettle-test ./kettle
+        run: raco pkg install --auto --no-docs ./kettle-lib ./kettle-test-lib ./kettle-components ./kettle-examples ./kettle-doc ./kettle-test ./kettle
 
       - name: Check package dependencies
-        run: raco setup --check-pkg-deps --pkgs tui-ubuf kettle-lib kettle-test-lib kettle-components kettle-doc kettle-examples kettle-test kettle
+        run: raco setup --check-pkg-deps --pkgs kettle-lib kettle-test-lib kettle-components kettle-doc kettle-examples kettle-test kettle
 
       - name: Run tests
         run: raco test -y kettle-test/kettle/tests/
