@@ -4,6 +4,7 @@
          kettle/examples/viewer
          kettle/program
          kettle/image
+         (only-in kettle/test strip-ansi)
          (prefix-in vp: kettle/components/viewport))
 
 (define (char-key ch)
@@ -73,12 +74,12 @@
 
 (test-case "view shows filename"
   (define fv (make-file-viewer sample-content "my-file.txt"))
-  (define s (image->string (view fv)))
+  (define s (strip-ansi (image->string (view fv))))
   (check-regexp-match #rx"my-file.txt" s))
 
 (test-case "view shows line count"
   (define fv (make-file-viewer sample-content "test.txt"))
-  (define s (image->string (view fv)))
+  (define s (strip-ansi (image->string (view fv))))
   ;; sample-content has 10 lines (with trailing newline -> 11 lines in the split)
   (check-regexp-match #rx"lines" s))
 

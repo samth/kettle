@@ -3,7 +3,8 @@
 (require rackunit
          kettle/examples/counter
          kettle/program
-         kettle/image)
+         kettle/image
+         (only-in kettle/test strip-ansi))
 
 ;; Helper: make a key-msg for a character
 (define (char-key ch)
@@ -57,5 +58,5 @@
   (define img (counter-view 42))
   (check-pred image? img)
   ;; The image should contain the text "Count: 42"
-  (define s (image->string img))
+  (define s (strip-ansi (image->string img)))
   (check-regexp-match #rx"Count: 42" s))

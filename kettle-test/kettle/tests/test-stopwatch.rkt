@@ -3,7 +3,8 @@
 (require rackunit
          kettle/examples/stopwatch
          kettle/program
-         kettle/image)
+         kettle/image
+         (only-in kettle/test strip-ansi))
 
 (define (char-key ch)
   (key-msg ch #f #f))
@@ -79,17 +80,17 @@
 
 (test-case "view shows STOPPED when not running"
   (define sw (make-stopwatch))
-  (define s (image->string (view sw)))
+  (define s (strip-ansi (image->string (view sw))))
   (check-regexp-match #rx"STOPPED" s))
 
 (test-case "view shows RUNNING when running"
   (define sw (stopwatch 0.0 #t 1000.0 '()))
-  (define s (image->string (view sw)))
+  (define s (strip-ansi (image->string (view sw))))
   (check-regexp-match #rx"RUNNING" s))
 
 (test-case "view shows elapsed time"
   (define sw (stopwatch 65.3 #f #f '())) ;; 1 min 5.3 sec
-  (define s (image->string (view sw)))
+  (define s (strip-ansi (image->string (view sw))))
   ;; Time is rendered as ASCII-art digits, so check for STOPPED status
   (check-regexp-match #rx"STOPPED" s)
   ;; Also check the image is non-trivial (has the big digits)

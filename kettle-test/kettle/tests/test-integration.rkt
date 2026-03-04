@@ -477,9 +477,10 @@
   (define img (vcat 'left (text "long line here")
                           (text "short")))
   (define rendered (image->string img))
+  (define plain (strip-ansi rendered))
   ;; The output should contain both text fragments
-  (check-true (string-contains? rendered "long line here"))
-  (check-true (string-contains? rendered "short"))
+  (check-true (string-contains? plain "long line here"))
+  (check-true (string-contains? plain "short"))
   ;; tui-ubuf linear mode resets attributes at end of each row
   (check-true (string-contains? rendered "\e[0m\r\n")))
 

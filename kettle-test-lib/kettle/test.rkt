@@ -36,6 +36,9 @@
          test-program-history
          test-program-subscriptions
 
+         ;; Utilities
+         strip-ansi
+
          ;; Rackunit checks
          check-test-program-contains
          check-test-program-done

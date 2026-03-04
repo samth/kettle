@@ -49,7 +49,7 @@
   (check-equal? (image-w result) (image-w base))
   (check-equal? (image-h result) (image-h base))
   ;; Render to string and verify the FPS label appears
-  (define rendered (image->string result))
+  (define rendered (strip-ansi (image->string result)))
   (check-true (string-contains? rendered "60 fps")))
 
 ;; Test that narrow images handle the overlay gracefully
