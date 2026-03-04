@@ -174,7 +174,7 @@ Requires tmux to be installed. Tests using this harness should check
                      [#:width width exact-positive-integer? 80]
                      [#:height height exact-positive-integer? 24]
                      [#:session-name session-name (or/c string? #f) #f]
-                     [#:startup-delay startup-delay real? 0.5]
+                     [#:startup-delay startup-delay real? 0.1]
                      [#:args extra-args list? '()])
          tmux-session?]{
   Start a Kettle program in a new tmux session. The program is launched
@@ -210,7 +210,7 @@ Requires tmux to be installed. Tests using this harness should check
 
 @defproc[(tmux-type [session tmux-session?]
                     [str string?]
-                    [#:delay delay real? 0.05])
+                    [#:delay delay real? 0.01])
          void?]{
   Type a string character by character with a delay between each
   keystroke.}
@@ -228,7 +228,7 @@ Requires tmux to be installed. Tests using this harness should check
 @defproc[(tmux-wait-for [session tmux-session?]
                         [pattern (or/c string? regexp?)]
                         [#:timeout timeout real? 5]
-                        [#:interval interval real? 0.1])
+                        [#:interval interval real? 0.05])
          (or/c string? #f)]{
   Poll the tmux pane until @racket[pattern] appears. Returns the
   captured pane contents on success, or @racket[#f] on timeout.

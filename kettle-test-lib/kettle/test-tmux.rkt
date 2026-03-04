@@ -127,7 +127,7 @@
                     #:width [width 80]
                     #:height [height 24]
                     #:session-name [session-name #f]
-                    #:startup-delay [startup-delay 0.5]
+                    #:startup-delay [startup-delay 0.1]
                     #:args [extra-args '()])
   (define name (or session-name (make-session-name)))
   ;; Create a bash session first, then send the racket command.
@@ -193,7 +193,7 @@
 (define (tmux-type session
                    str
                    #:delay (delay
-                             0.05))
+                             0.01))
   (for ([ch (in-string str)])
     (tmux-send-keys session (string ch))
     (sleep delay)))
@@ -215,7 +215,7 @@
 
 ;; Wait until the captured pane contains pattern (string or regexp).
 ;; Returns the captured pane contents on success, or #f on timeout.
-(define (tmux-wait-for session pattern #:timeout [timeout 5] #:interval [interval 0.1])
+(define (tmux-wait-for session pattern #:timeout [timeout 5] #:interval [interval 0.05])
   (define rx
     (if (regexp? pattern)
         pattern
@@ -269,7 +269,7 @@
 ;; marker is text that should disappear when the TUI is no longer running.
 (define-check (check-quit-exits session quit-key marker)
   (tmux-send-keys session quit-key)
-  (sleep 0.3)
+  (sleep 0.05)
   (define captured (tmux-capture session #:trim #t))
   (when (regexp-match? (regexp-quote marker) captured)
     (with-check-info (['quit-key quit-key] ['marker marker] ['captured-pane captured])

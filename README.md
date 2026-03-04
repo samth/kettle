@@ -92,29 +92,62 @@ racket kettle-examples/kettle/examples/top.rkt
 raco pkg install --auto ./kettle-lib ./kettle-components ./kettle-test-lib ./kettle-doc ./kettle
 ```
 
+To also install examples and tests:
+
+```bash
+raco pkg install --auto ./kettle-examples ./kettle-test
+```
+
 ## Package Structure
 
 - **kettle/** -- Meta package (depends on kettle-lib and kettle-doc)
-- **kettle-lib/** -- Implementation: `kettle/main.rkt` re-exports the full API
-- **kettle-doc/** -- Scribble documentation in `kettle/scribblings/`
-- **kettle-examples/** -- Example programs
+- **kettle-lib/** -- Core implementation: event loop, rendering, image tree, components
+- **kettle-doc/** -- Scribble documentation
+- **kettle-components/** -- Additional components (datepicker, markdown, overlay, zone-manager)
+- **kettle-examples/** -- Example programs (33 demos)
+- **kettle-test-lib/** -- Test support: headless harness (`kettle/test`) and tmux e2e harness (`kettle/test-tmux`)
+- **kettle-test/** -- Unit, integration, e2e, and benchmark tests
 
 ## Key Modules
 
 | Module | Description |
 |--------|-------------|
+| `kettle` | Re-exports the full API |
 | `kettle/run` | Big-bang-style entry point |
 | `kettle/program` | Event loop, `define-kettle-program`, messages |
-| `kettle/image` | Algebraic image tree (text, hcat, vcat, styled, flex) |
+| `kettle/image` | Algebraic image tree (text, hcat, vcat, zcat, styled, flex, crop, pad) |
 | `kettle/style` | ANSI styling, colors (16/256/truecolor) |
 | `kettle/border` | Box border rendering |
-| `kettle/components/textinput` | Text input component |
+| `kettle/layout` | String-based horizontal/vertical joining |
+
+### Components (kettle-lib)
+
+| Module | Description |
+|--------|-------------|
+| `kettle/components/textinput` | Single-line text input |
 | `kettle/components/textarea` | Multi-line text area |
-| `kettle/components/list-view` | Navigable list |
-| `kettle/components/table` | Table display |
+| `kettle/components/list-view` | Navigable list with selection |
+| `kettle/components/table` | Table display with headers |
 | `kettle/components/viewport` | Scrollable viewport |
-| `kettle/components/spinner` | Loading spinner |
+| `kettle/components/spinner` | Loading spinner animation |
 | `kettle/components/progress` | Progress bar |
+| `kettle/components/paginator` | Page navigation |
+
+### Additional Components (kettle-components)
+
+| Module | Description |
+|--------|-------------|
+| `kettle/components/datepicker` | Date picker |
+| `kettle/components/markdown` | Markdown rendering |
+| `kettle/components/overlay` | Overlay/modal support |
+| `kettle/components/zone-manager` | Focus zone management |
+
+### Test Support (kettle-test-lib)
+
+| Module | Description |
+|--------|-------------|
+| `kettle/test` | Headless, synchronous test harness for Kettle programs |
+| `kettle/test-tmux` | tmux-based end-to-end test harness with screen capture |
 
 ## Testing
 
@@ -122,8 +155,13 @@ raco pkg install --auto ./kettle-lib ./kettle-components ./kettle-test-lib ./ket
 # Run all tests
 raco test -y kettle-test/kettle/tests/
 
-# Run e2e tests (requires tmux)
+# Run e2e tests only (requires tmux)
 raco test -y kettle-test/kettle/tests/test-e2e.rkt
+
+# Run benchmarks with full output
+racket -y kettle-test/kettle/tests/bench-ansi-text.rkt
+racket -y kettle-test/kettle/tests/bench-render.rkt
+racket -y kettle-test/kettle/tests/bench-log-viewer.rkt
 ```
 
 ## Recording GIFs
