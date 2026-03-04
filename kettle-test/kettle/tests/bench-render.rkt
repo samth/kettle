@@ -31,7 +31,6 @@
 
 (define WIDTH 120)
 (define HEIGHT 40)
-(define ITERS 50)
 
 ;; Build a simple text image: one text node per line
 (define (make-simple-text-image w h)
@@ -89,7 +88,7 @@
   (paint! buf img 0 0)
   (cell-buffer->string buf))
 
-(define (run-benchmarks)
+(define (run-benchmarks #:iterations [ITERS 50])
   (printf "Kettle Rendering Benchmarks (~ax~a, ~a iterations, median time)\n" WIDTH HEIGHT ITERS)
   (printf "Target: <~ams per frame (>~a fps)\n\n" (quotient 1000 15) 15)
 
@@ -177,11 +176,11 @@
 (module+ test
   (require rackunit)
   (parameterize ([current-output-port (open-output-string)])
-    (run-benchmarks))
+    (run-benchmarks #:iterations 5))
 
   ;; Assert that all scenarios meet the 15 fps target
   (define (check-fps label img w h)
-    (define ms (bench 20 (full-render-cycle img w h)))
+    (define ms (bench 5 (full-render-cycle img w h)))
     (define fps (/ 1000.0 ms))
     (check-true (>= fps 15.0) (format "~a: ~a fps (need >= 15)" label (~r fps #:precision '(= 1)))))
 

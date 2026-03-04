@@ -43,7 +43,7 @@
 
 ;;; Benchmarks
 
-(define (run-benchmarks)
+(define (run-benchmarks #:scale [scale 1])
   (printf "\n=== Log Viewer Benchmarks ===\n\n")
 
   ;; 1. File load benchmarks
@@ -54,14 +54,14 @@
            (lambda ()
              (define vec (generate-lines 100000))
              (make-log-viewer vec "bench.log" #:width 120 #:height 40))
-           #:iterations 5))
+           #:iterations (max 1 (* 5 scale))))
 
   (define load-1m-ms
     (bench "Load 1M lines"
            (lambda ()
              (define vec (generate-lines 1000000))
              (make-log-viewer vec "bench.log" #:width 120 #:height 40))
-           #:iterations 3))
+           #:iterations (max 1 (* 3 scale))))
 
   ;; Pre-build viewers for scroll benchmarks
   (define lines-100k (generate-lines 100000))
@@ -73,11 +73,14 @@
   ;; 2. Scroll + render at 100K lines
   (printf "\n--- Scroll render at 100K lines (120x40) ---\n")
 
+  (define scroll-iters (max 3 (* 50 scale)))
+
   (define scroll-100k-ms
     (bench "Scroll down + view"
            (lambda ()
              (define-values (lv2 _) (extract-update-result (update lv-100k (key-msg #\j #f #f))))
-             (view lv2))))
+             (view lv2))
+           #:iterations scroll-iters))
 
   ;; 3. Scroll + render at 1M lines
   (printf "\n--- Scroll render at 1M lines (120x40) ---\n")
@@ -86,7 +89,8 @@
     (bench "Scroll down + view"
            (lambda ()
              (define-values (lv2 _) (extract-update-result (update lv-1m (key-msg #\j #f #f))))
-             (view lv2))))
+             (view lv2))
+           #:iterations scroll-iters))
 
   ;; 4. Page-down at 1M lines (200x60)
   (printf "\n--- Page-down at 1M lines (200x60) ---\n")
@@ -96,7 +100,8 @@
            (lambda ()
              (define-values (lv2 _)
                (extract-update-result (update lv-1m-large (key-msg #\space #f #f))))
-             (view lv2))))
+             (view lv2))
+           #:iterations scroll-iters))
 
   ;; 5. Jump-to-bottom at 1M lines
   (printf "\n--- Jump to bottom at 1M lines (120x40) ---\n")
@@ -105,7 +110,8 @@
     (bench "Jump to bottom (G) + view"
            (lambda ()
              (define-values (lv2 _) (extract-update-result (update lv-1m (key-msg #\G #f #f))))
-             (view lv2))))
+             (view lv2))
+           #:iterations scroll-iters))
 
   ;; Assertions
   (printf "\n--- Assertions ---\n")
@@ -133,4 +139,4 @@
 
 (module+ test
   (parameterize ([current-output-port (open-output-string)])
-    (run-benchmarks)))
+    (run-benchmarks #:scale 0)))

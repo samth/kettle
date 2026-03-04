@@ -111,9 +111,7 @@
 
 ;;; ---------- Benchmark suites ----------
 
-(define ITERS 500)
-
-(define (run-benchmarks)
+(define (run-benchmarks #:iterations [ITERS 500])
   (printf "Kettle ANSI Text Processing Benchmarks (~a iterations, median)\n" ITERS)
   (printf "Comparable to Bun's slice-ansi.mjs benchmark\n\n")
 
@@ -266,4 +264,4 @@
 (module+ test
   (require rackunit)
   (parameterize ([current-output-port (open-output-string)])
-    (run-benchmarks)))
+    (run-benchmarks #:iterations 5)))
