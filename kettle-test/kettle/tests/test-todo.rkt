@@ -4,7 +4,6 @@
          kettle/examples/todo
          kettle/program
          kettle/image
-         (only-in kettle/test strip-ansi)
          (prefix-in ti: kettle/components/textinput)
          (prefix-in lv: kettle/components/list-view))
 
@@ -98,7 +97,7 @@
 
 (test-case "view shows item count"
   (define t (make-todo))
-  (define s (strip-ansi (image->string (view t))))
+  (define s (image->string (view t)))
   (check-regexp-match #rx"0 items" s))
 
 ;; --- Purity ---

@@ -31,13 +31,9 @@
          test-program-value
          test-program-view
          test-program-view-string
-         test-program-view-string/ansi
          test-program-done?
          test-program-history
          test-program-subscriptions
-
-         ;; Utilities
-         strip-ansi
 
          ;; Rackunit checks
          check-test-program-contains
@@ -284,21 +280,13 @@
 (define (test-program-view tp)
   (view (test-program-model tp)))
 
-;; Strip ANSI escape sequences from a string.
-(define (strip-ansi str)
-  (regexp-replace* #rx"\x1b\\[[0-9;]*[A-Za-z]" str ""))
-
-;; Get the current view rendered as a string with ANSI codes.
-(define (test-program-view-string/ansi tp)
+;; Get the current view rendered as a plain string.
+(define (test-program-view-string tp)
   (define v (test-program-view tp))
   (cond
     [(image? v) (image->string v)]
     [(string? v) v]
     [else ""]))
-
-;; Get the current view rendered as a plain string (ANSI stripped).
-(define (test-program-view-string tp)
-  (strip-ansi (test-program-view-string/ansi tp)))
 
 ;; test-program-done? is provided by the struct accessor
 ;; test-program-history is provided by the struct accessor

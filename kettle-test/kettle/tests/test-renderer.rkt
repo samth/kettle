@@ -6,7 +6,6 @@
 (require rackunit
          racket/string
          kettle
-         (only-in kettle/test strip-ansi)
          kettle/components/textarea
          kettle/components/viewport)
 
@@ -18,14 +17,14 @@
 
 (test-case "renderer: plain text"
   (define s (image->string (text "hello")))
-  (check-true (string-contains? (strip-ansi s) "hello")))
+  (check-true (string-contains? s "hello")))
 
 (test-case "renderer: bold text"
   (define s (image->string (styled (make-style #:bold #t) "test")))
   ;; SGR 1 = bold
   (check-true (string-contains? s "\e[") "should contain ANSI escape")
   (check-true (string-contains? s "1") "should contain bold SGR code")
-  (check-true (string-contains? (strip-ansi s) "test")))
+  (check-true (string-contains? s "test")))
 
 (test-case "renderer: reverse style swaps fg and bg"
   ;; reverse with default colors (fg=7 white, bg=0 black) should produce
@@ -65,7 +64,7 @@
 (test-case "renderer: faint text uses faint attribute"
   ;; faint style should produce SGR 2
   (define s (image->string (styled (make-style #:faint #t) "dim")))
-  (check-true (string-contains? (strip-ansi s) "dim")))
+  (check-true (string-contains? s "dim")))
 
 (test-case "renderer: combined bold+reverse"
   ;; bold+reverse: should have bold SGR and swapped colors
@@ -171,7 +170,7 @@
 
 (test-case "renderer: combining marks normalized via NFC"
   ;; e + combining acute should render as é (single codepoint)
-  (check-true (string-contains? (strip-ansi (image->string (text "e\u0301"))) "\u00e9")))
+  (check-true (string-contains? (image->string (text "e\u0301")) "\u00e9")))
 
 ;;; ============================================================
 ;;; wrap-text #:normalize-spaces (#5)

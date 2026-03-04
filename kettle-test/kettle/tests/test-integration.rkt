@@ -330,7 +330,7 @@
                                "\n"))
   (define lv (make-log-viewer-from-string content "test.log" #:width 40 #:height 12))
   (define tp (make-test-program lv))
-  (define view-str (test-program-view-string/ansi tp))
+  (define view-str (test-program-view-string tp))
   ;; Header uses reverse style (bold + reverse)
   ;; With default colors, reverse means fg=0 (black, SGR 30) and bg=7 (white, SGR 47)
   (check-true (string-contains? view-str "30") "header should have reversed fg (30)")
@@ -477,10 +477,9 @@
   (define img (vcat 'left (text "long line here")
                           (text "short")))
   (define rendered (image->string img))
-  (define plain (strip-ansi rendered))
   ;; The output should contain both text fragments
-  (check-true (string-contains? plain "long line here"))
-  (check-true (string-contains? plain "short"))
+  (check-true (string-contains? rendered "long line here"))
+  (check-true (string-contains? rendered "short"))
   ;; tui-ubuf linear mode resets attributes at end of each row
   (check-true (string-contains? rendered "\e[0m\r\n")))
 
