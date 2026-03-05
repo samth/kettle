@@ -17,4 +17,4 @@
                      "scribble-lib"))
 (define update-implies '("kettle-lib"))
 
-(define license '(MIT))
+(define license 'MIT)

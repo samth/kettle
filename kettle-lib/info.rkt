@@ -10,4 +10,4 @@
 
 (define pkg-authors '(green))
 
-(define license '(MIT))
+(define license 'MIT)
