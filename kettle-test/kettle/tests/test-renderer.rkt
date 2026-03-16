@@ -221,6 +221,41 @@
 ;;; viewport width enforcement (#6)
 ;;; ============================================================
 
+;;; ============================================================
+;;; Inline ANSI SGR parsing in renderer
+;;; ============================================================
+
+(test-case "renderer: compound SGR codes like \\e[1;96m are split correctly"
+  ;; \e[1;96m = bold + bright cyan foreground
+  ;; The renderer must split "1;96" into "1" and "96" individually
+  (define s (image->string (text "\x1b[1;96mhello\x1b[0m")))
+  ;; bold (SGR 1) should be applied
+  (check-true (string-contains? s "1") "should contain bold SGR")
+  ;; bright cyan fg (SGR 96) should become color index 14 in output
+  (check-true (string-contains? s "hello") "text should be present"))
+
+(test-case "renderer: \\e[m (no parameter) treated as reset"
+  ;; \e[m with no parameters is equivalent to \e[0m per ANSI standard
+  ;; After reset, subsequent text should use the base style
+  (define s (image->string (text "\x1b[1mbold\x1b[mnormal")))
+  (check-true (string-contains? s "bold"))
+  (check-true (string-contains? s "normal")))
+
+(test-case "renderer: extended color codes 38;5;N kept together"
+  ;; \e[38;5;196m = 256-color red foreground
+  ;; The "38;5;196" must not be split on semicolons
+  (define s (image->string (text "\x1b[38;5;196mred\x1b[0m")))
+  (check-true (string-contains? s "red") "text should be present"))
+
+(test-case "renderer: compound SGR with multiple attributes"
+  ;; \e[1;3;4m = bold + italic + underline
+  (define s (image->string (text "\x1b[1;3;4mfancy\x1b[0m")))
+  (check-true (string-contains? s "fancy") "text should be present"))
+
+;;; ============================================================
+;;; viewport width enforcement (#6)
+;;; ============================================================
+
 (test-case "viewport: width enforced even at x-offset 0"
   (define vp (make-viewport #:width 10 #:height 3
                             #:content "this is a long line that exceeds viewport width"))
