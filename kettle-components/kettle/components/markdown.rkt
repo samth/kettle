@@ -209,9 +209,9 @@
     [`(p ,_ . ,children)
      (render-paragraph ms margin-str content-width children)]
     [`(ul ,_ . ,children)
-     (render-unordered-list ms margin-str children)]
+     (render-unordered-list ms margin-str content-width children)]
     [`(ol ,_ . ,children)
-     (render-ordered-list ms margin-str children)]
+     (render-ordered-list ms margin-str content-width children)]
     [`(pre ,_ . ,children)
      (render-code-block ms margin-str children)]
     [`(blockquote ,_ . ,children)
@@ -256,19 +256,29 @@
                         (render-styled (make-style #:foreground text-color) line)
                         line))))
 
-(define (render-unordered-list ms margin-str items)
+(define (render-unordered-list ms margin-str content-width items)
   (apply append
     (for/list ([item (in-list items)]
                #:when (and (pair? item) (eq? (car item) 'li)))
       (match item
         [`(li ,_ . ,children)
          (define bullet (markdown-style-list-bullet ms))
-         (define indent-str (make-string (markdown-style-list-indent ms) #\space))
+         (define indent (markdown-style-list-indent ms))
+         (define indent-str (make-string indent #\space))
          (define inline-children (extract-inline-content children))
          (define txt (render-inlines ms inline-children))
-         (list (string-append margin-str indent-str bullet txt))]))))
+         ;; Wrap long list items, indent continuation lines
+         (define first-prefix (string-append margin-str indent-str bullet))
+         (define cont-prefix (string-append margin-str (make-string (+ indent (string-length bullet)) #\space)))
+         (define avail (max 20 (- content-width indent (string-length bullet))))
+         (define wrapped (wrap-text txt avail))
+         (define lines (string-split wrapped "\n" #:trim? #f))
+         (if (null? lines)
+             (list (string-append first-prefix ""))
+             (cons (string-append first-prefix (first lines))
+                   (map (lambda (l) (string-append cont-prefix l)) (rest lines))))]))))
 
-(define (render-ordered-list ms margin-str items)
+(define (render-ordered-list ms margin-str content-width items)
   (define li-items (filter (lambda (x) (and (pair? x) (eq? (car x) 'li))) items))
   (for/list ([item (in-list li-items)]
              [i (in-naturals 1)])
