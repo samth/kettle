@@ -128,8 +128,8 @@
                   ;; End of escape - extract the code string
                   (define code-str (substring str* code-start (sub1 i)))
                   (cond
-                    ;; Reset
-                    [(string=? code-str "0")
+                    ;; Reset: \e[0m or \e[m (empty = implicit 0)
+                    [(or (string=? code-str "0") (string=? code-str ""))
                      (set! inline-codes '())
                      (set! effective-style sty)
                      (set! style-dirty? #f)]
@@ -203,7 +203,20 @@
   (define faint? (and base-sty (style-faint? base-sty)))
   (define strikethrough? (and base-sty (style-strikethrough? base-sty)))
   (define blink? (and base-sty (style-blink? base-sty)))
-  (for ([code (in-list codes)])
+  ;; Split compound codes like "1;96" into individual codes "1" "96"
+  ;; But keep extended color codes like "38;5;196" together
+  (define split-codes
+    (apply append
+           (for/list ([code (in-list codes)])
+             (cond
+               ;; Extended color: 38;... or 48;... -- keep together
+               [(or (string-prefix? code "38;") (string-prefix? code "48;"))
+                (list code)]
+               ;; Compound: split on ;
+               [(string-contains? code ";")
+                (string-split code ";")]
+               [else (list code)]))))
+  (for ([code (in-list split-codes)])
     (cond
       [(string=? code "1") (set! bold? #t)]
       [(string=? code "2") (set! faint? #t)]
