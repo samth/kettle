@@ -142,12 +142,15 @@
              "-y"
              (number->string height)
              "bash")
-  ;; Launch the Racket program inside the session
+  ;; Launch the Racket program inside the session.
+  ;; Use the full path to the current racket executable so tmux
+  ;; picks up the same version even if PATH differs in the shell.
+  (define racket-exe (path->string (find-system-path 'exec-file)))
   (define args-str
     (if (null? extra-args)
         ""
         (string-append " " (string-join (map ~a extra-args) " "))))
-  (define cmd (format "racket -y ~a~a" module-path args-str))
+  (define cmd (format "~a -y ~a~a" racket-exe module-path args-str))
   (tmux-run! "send-keys" "-t" name cmd "Enter")
   ;; Wait for the program to start
   (sleep startup-delay)

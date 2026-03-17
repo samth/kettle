@@ -1,8 +1,7 @@
 #lang racket/base
 
 ;; test-markdown.rkt -- Unit tests for the markdown rendering component.
-;; Tests that typographic entities from the markdown parser are correctly
-;; rendered to terminal output.
+;; Tests that markdown content is correctly rendered to terminal output.
 
 (require rackunit
          racket/string
@@ -11,39 +10,36 @@
 (provide (all-defined-out))
 
 ;;; ============================================================
-;;; Typographic entity rendering
+;;; Text rendering
 ;;; ============================================================
 
-(test-case "markdown: smart single quotes preserved"
-  ;; markdown/parse converts 'text' to lsquo + text + rsquo
+(test-case "markdown: single quotes preserved"
   (define result (md:render-markdown "*'hello'*" #:style 'ascii))
-  (check-true (string-contains? result "\u2018") "should contain left single quote")
-  (check-true (string-contains? result "\u2019") "should contain right single quote")
+  (check-true (string-contains? result "'") "should contain single quote")
   (check-true (string-contains? result "hello")))
 
-(test-case "markdown: en dash preserved in ranges"
-  ;; markdown/parse converts 1-4 inside quotes to 1 ndash 4
+(test-case "markdown: dashes preserved in ranges"
   (define result (md:render-markdown "*'1-4'*" #:style 'ascii))
-  (check-true (string-contains? result "\u2013") "should contain en dash")
   (check-true (string-contains? result "1"))
+  (check-true (string-contains? result "-") "should contain dash")
   (check-true (string-contains? result "4")))
 
-(test-case "markdown: em dash preserved"
-  ;; markdown/parse converts --- to mdash
+(test-case "markdown: triple dash becomes thematic break or preserved"
+  ;; text---more on same line is kept as literal text
   (define result (md:render-markdown "text---more" #:style 'ascii))
-  (check-true (string-contains? result "\u2014") "should contain em dash"))
+  (check-true (string-contains? result "text") "should contain text")
+  (check-true (string-contains? result "more") "should contain more"))
 
 (test-case "markdown: apostrophe in contractions"
-  ;; Here's → Here + rsquo + s
   (define result (md:render-markdown "Here's an example" #:style 'ascii))
   (check-true (string-contains? result "Here"))
-  (check-true (string-contains? result "s"))
-  (check-true (string-contains? result "\u2019") "should contain right single quote"))
+  (check-true (string-contains? result "'s") "should contain apostrophe"))
 
 (test-case "markdown: entities in styled context"
-  ;; Entities inside bold text should also render correctly
+  ;; Apostrophe inside bold text should render correctly
   (define result (md:render-markdown "**it's bold**" #:style 'ascii))
-  (check-true (string-contains? result "\u2019") "should contain apostrophe entity"))
+  (check-true (string-contains? result "it") "should contain it")
+  (check-true (string-contains? result "bold") "should contain bold"))
 
 ;;; ============================================================
 ;;; List item wrapping

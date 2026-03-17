@@ -225,6 +225,8 @@
   (define h (viewport-height vp))
   (define actual-lines (length visible))
   (define padding-needed (max 0 (- h actual-lines)))
-  (define line-imgs (map text visible))
+  ;; Empty strings must produce 1-height images (not 0-height blank)
+  ;; so that blank lines in content are preserved as visual spacing
+  (define line-imgs (map (lambda (l) (if (string=? l "") (text " ") (text l))) visible))
   (define pad-imgs (make-list padding-needed (text "")))
   (apply vcat 'left (append line-imgs pad-imgs)))

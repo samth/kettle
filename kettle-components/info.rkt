@@ -2,7 +2,7 @@
 
 (define collection 'multi)
 (define version "1.0")
-(define deps '("base" "kettle-lib" "gregor-lib" "markdown"))
+(define deps '("base" "kettle-lib" "gregor-lib" "commonmark"))
 
 (define pkg-desc "additional components for \"kettle\"")
 
