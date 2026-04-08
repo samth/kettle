@@ -19,7 +19,8 @@
                   make-ubuf ubuf?
                   ubuf-putchar! ubuf-clear!)
          "style.rkt"
-         "image.rkt")
+         "image.rkt"
+         "terminal.rkt")
 
 (provide (struct-out renderer)
          make-renderer
@@ -309,22 +310,35 @@
 (define (make-renderer [output-stream (current-output-port)])
   (renderer #f 0 0 output-stream ""))
 
-;; Render an image to the terminal
+;; Render an image to the terminal.
+;; Clamps the buffer dimensions to the actual terminal size: an image
+;; larger than the terminal would otherwise cause display-ubuf-cells
+;; to write more rows than the terminal has, which scrolls the
+;; alt-screen and pushes the top of the content off the visible area.
 (define (render-image! r img)
-  (define w (image-w img))
-  (define h (image-h img))
+  (define img-w (image-w img))
+  (define img-h (image-h img))
+  (define term-size (with-handlers ([exn:fail? (lambda (_) (cons 80 24))])
+                      (get-terminal-size)))
+  (define term-w (car term-size))
+  (define term-h (cdr term-size))
+  (define w (min img-w term-w))
+  (define h (min img-h term-h))
+  ;; ubuf requires w,h >= 1
+  (define safe-w (max 1 w))
+  (define safe-h (max 1 h))
   ;; Reallocate buffer if size changed
   (define buf
     (if (and (renderer-buffer r)
-             (= w (renderer-width r))
-             (= h (renderer-height r)))
+             (= safe-w (renderer-width r))
+             (= safe-h (renderer-height r)))
         (let ([b (renderer-buffer r)])
           (ubuf-clear! b)
           b)
-        (let ([b (make-ubuf w h)])
+        (let ([b (make-ubuf safe-w safe-h)])
           (set-renderer-buffer! r b)
-          (set-renderer-width! r w)
-          (set-renderer-height! r h)
+          (set-renderer-width! r safe-w)
+          (set-renderer-height! r safe-h)
           b)))
   (paint! buf img 0 0)
   (define stream (renderer-output-stream r))

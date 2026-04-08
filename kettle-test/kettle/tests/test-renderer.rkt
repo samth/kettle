@@ -7,7 +7,8 @@
          racket/string
          kettle
          kettle/components/textarea
-         kettle/components/viewport)
+         kettle/components/viewport
+         (only-in kettle/private/renderer make-renderer render!))
 
 (provide (all-defined-out))
 
@@ -262,3 +263,61 @@
   (define img (view vp))
   ;; The rendered output should not exceed viewport width
   (check-true (<= (image-w img) 10)))
+
+;;; ============================================================
+;;; render-image! clamps to terminal size
+;;; ============================================================
+
+;; In test environments without a controlling terminal, get-terminal-size
+;; falls back to (cons 80 24). render-image! should clamp the buffer to
+;; this size so an oversized image doesn't cause display-ubuf-cells to
+;; write more rows than the terminal has, which would scroll the
+;; alt-screen and hide the top of the content.
+
+(define (count-rows ansi-str)
+  ;; Each row is terminated by \r\n (except possibly the last). The
+  ;; ANSI prefix/suffix from render-image! adds cursor moves but no
+  ;; \r\n. Count by splitting on \r\n.
+  (length (regexp-split #rx"\r\n" ansi-str)))
+
+(test-case "renderer: image taller than terminal is clamped"
+  ;; Build an image with 100 rows (way taller than fallback 24)
+  (define tall-img
+    (apply vcat 'left
+           (for/list ([i (in-range 100)])
+             (text (format "row ~a" i)))))
+  (define out (open-output-string))
+  (define r (make-renderer out))
+  (render! r tall-img)
+  (define s (get-output-string out))
+  ;; Should not contain "row 50" or higher -- those rows were clamped
+  (check-true (string-contains? s "row 0") "first row should be present")
+  (check-false (string-contains? s "row 50") "row 50 should be clamped (only 24 rows fit)")
+  (check-false (string-contains? s "row 99") "last row should be clamped"))
+
+(test-case "renderer: image wider than terminal is clamped"
+  ;; Build a single very wide line
+  (define wide-img (text (make-string 200 #\x)))
+  (define out (open-output-string))
+  (define r (make-renderer out))
+  (render! r wide-img)
+  (define s (get-output-string out))
+  ;; Count consecutive 'x' characters in the output -- should be at most 80
+  (define m (regexp-match #px"x{50,}" s))
+  (when m
+    (check-true (<= (string-length (car m)) 80)
+                (format "x sequence length ~a exceeds 80" (string-length (car m))))))
+
+(test-case "renderer: image smaller than terminal renders fully"
+  ;; A 5-row image should render all 5 rows
+  (define img
+    (apply vcat 'left
+           (for/list ([i (in-range 5)])
+             (text (format "line ~a" i)))))
+  (define out (open-output-string))
+  (define r (make-renderer out))
+  (render! r img)
+  (define s (get-output-string out))
+  (for ([i (in-range 5)])
+    (check-true (string-contains? s (format "line ~a" i))
+                (format "line ~a should be present" i))))
