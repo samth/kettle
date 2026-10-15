@@ -34,7 +34,9 @@
          program-show-fps!
          current-program
          define-kettle-program
-         coalesce-mouse-events)
+         coalesce-mouse-events
+         ;; for tests: run one batch of messages through the event loop
+         handle-messages-batch)
 
 (define current-program (make-parameter #f))
 
@@ -59,12 +61,17 @@
                       #:alt-screen [alt-screen #f]
                       #:mouse [mouse #f]
                       #:show-fps [show-fps #f]
+                      #:fps-hotkey [fps-hotkey #f]
                       #:kitty-keyboard [kitty-keyboard #f])
   (when (and mouse (not (memq mouse '(cell-motion all-motion))))
     (error 'make-program "Invalid :mouse option ~s; expected 'cell-motion, 'all-motion, or #f" mouse))
   (define opts (list 'alt-screen (and alt-screen #t)
                      'mouse mouse
-                     'kitty-keyboard (and kitty-keyboard #t)))
+                     'kitty-keyboard (and kitty-keyboard #t)
+                     ;; Opt-in: when on, Alt+F toggles the FPS overlay and
+                     ;; is consumed. It used to be always on, which silently
+                     ;; stole M-f (readline forward-word) from every app.
+                     'fps-hotkey (and fps-hotkey #t)))
   (program model
            (make-renderer)
            (make-async-channel)
@@ -303,8 +310,9 @@
          (return (void))]
         ;; Internal: Kitty keyboard protocol query response (discard)
         [(kitty-query-response-msg? m) (void)]
-        ;; FPS toggle hotkey: Alt+F
+        ;; FPS toggle hotkey: Alt+F, only when the app opted in
         [(and (key-msg? m)
+              (opts-ref (program-options p) 'fps-hotkey #f)
               (key-msg-alt m)
               (let ([k (key-msg-key m)])
                 (and (char? k) (char=? k #\f))))

@@ -25,6 +25,7 @@
                                        #:alt-screen boolean?
                                        #:mouse (or/c 'cell-motion 'all-motion #f)
                                        #:show-fps boolean?
+                                       #:fps-hotkey boolean?
                                        #:kitty-keyboard boolean?)
                              void?)])
 )
@@ -80,8 +81,10 @@
              #:alt-screen [alt-screen #f]
              #:mouse [mouse #f]
              #:show-fps [show-fps #f]
+             #:fps-hotkey [fps-hotkey #f]
              #:kitty-keyboard [kitty-keyboard #f])
   (define model (run-model initial-value on-key-fn on-msg-fn view-fn stop-fn on-tick-fn tick-rate))
   (define p (make-program model #:alt-screen alt-screen #:mouse mouse #:show-fps show-fps
+                          #:fps-hotkey fps-hotkey
                           #:kitty-keyboard kitty-keyboard))
   (program-run p))

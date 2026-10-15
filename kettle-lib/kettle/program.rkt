@@ -14,6 +14,7 @@
                              (#:alt-screen boolean?
                               #:mouse (or/c 'cell-motion 'all-motion #f)
                               #:show-fps boolean?
+                              #:fps-hotkey boolean?
                               #:kitty-keyboard boolean?)
                              program?)]
                        [program-run (-> program? void?)]

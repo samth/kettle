@@ -28,13 +28,53 @@
   (program-show-fps! p #f)
   (check-false (program-show-fps? p)))
 
-;; Test that Alt+F is a no-op in the headless test harness
-;; (the hotkey is handled by program.rkt's event loop, not the model)
+;; The headless harness bypasses program.rkt's event loop entirely, so the
+;; hotkey never applies here whatever its setting.
 (test-case "fps: Alt+F does not affect model in headless mode"
   (define tp (make-test-program/run 0 #:on-key counter-on-key #:to-view counter-view))
   (test-program-press tp #\f #:alt #t)
   (check-test-program-contains tp "Count: 0")
   (check-test-program-running tp))
+
+;; ── The Alt+F hotkey in the real event loop ─────────────────
+;; The headless harness above never reaches program.rkt's loop, which is
+;; where the hotkey lives, so these run a batch through that loop directly.
+
+(require (only-in kettle/private/program handle-messages-batch)
+         racket/port)
+
+;; A model that records every key-msg it is given.
+(struct recorder (keys)
+  #:methods gen:kettle-model
+  [(define (init m) m)
+   (define (update m msg)
+     (if (key-msg? msg) (recorder (cons (key-msg-key msg) (recorder-keys m))) m))
+   (define (view m) (text "rec"))])
+
+;; Run `msgs` through the loop; returns the program.
+(define (run-batch msgs #:fps-hotkey [hk 'default])
+  (define p
+    (parameterize ([current-output-port (open-output-nowhere)])
+      (if (eq? hk 'default)
+          (make-program (recorder '()))
+          (make-program (recorder '()) #:fps-hotkey hk))))
+  (parameterize ([current-output-port (open-output-nowhere)])
+    (handle-messages-batch p msgs))
+  p)
+
+(test-case "fps: by default Alt+F reaches the app (it is an ordinary key, e.g. M-f)"
+  (define p (run-batch (list (key-msg #\f #t #f))))
+  (check-equal? (recorder-keys (program-model p)) '(#\f))
+  (check-false (program-show-fps? p)))
+
+(test-case "fps: with #:fps-hotkey #t, Alt+F toggles the overlay and is not delivered"
+  (define p (run-batch (list (key-msg #\f #t #f)) #:fps-hotkey #t))
+  (check-equal? (recorder-keys (program-model p)) '())
+  (check-true (program-show-fps? p)))
+
+(test-case "fps: plain f is always delivered"
+  (define p (run-batch (list (key-msg #\f #f #f)) #:fps-hotkey #t))
+  (check-equal? (recorder-keys (program-model p)) '(#\f)))
 
 ;; Test the FPS overlay image composition (simulating what overlay-fps does)
 (test-case "fps: overlay produces valid image"

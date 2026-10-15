@@ -36,4 +36,5 @@
                @"  "q    quit})
 
 (module+ main
-  (run 0 #:on-key counter-on-key #:to-view counter-view #:alt-screen #t))
+  ;; Alt+F toggles an FPS overlay; the hotkey is opt-in.
+  (run 0 #:on-key counter-on-key #:to-view counter-view #:alt-screen #t #:fps-hotkey #t))
