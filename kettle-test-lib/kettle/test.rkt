@@ -25,6 +25,7 @@
          test-program-release
          test-program-type
          test-program-resize
+         test-program-set-model!
 
          ;; State inspection
          test-program-model
@@ -268,6 +269,16 @@
 ;;; ============================================================
 
 ;; test-program-model is provided by the struct accessor
+
+;; Replace the current model, e.g. to put an app into a state that only
+;; an asynchronous result could reach.  Unlike building a fresh test
+;; program, this skips init, so init's side effects and commands do not
+;; run again.  The swap is recorded in history and resubscribes.
+(define (test-program-set-model! tp model)
+  (set-test-program-model! tp model)
+  (set-test-program-history! tp (cons (cons model (view model))
+                                      (test-program-history tp)))
+  (set-test-program-active-subs! tp (safe-subscriptions model)))
 
 ;; Get the unwrapped value for run-style programs.
 (define (test-program-value tp)

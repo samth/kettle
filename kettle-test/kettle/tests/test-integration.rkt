@@ -533,3 +533,29 @@
   (check-test-program-contains tp "P:2 R:1")
   (test-program-release tp #\j)
   (check-test-program-contains tp "P:2 R:2"))
+
+;;; ============================================================
+;;; Replacing the model mid-test
+;;; ============================================================
+
+;; Counts init calls so the test can tell a swap from a restart.
+(define inits (box 0))
+(struct tally (n)
+  #:methods gen:kettle-model
+  [(define (init m)
+     (set-box! inits (add1 (unbox inits)))
+     m)
+   (define (update m msg)
+     (if (key-msg? msg) (tally (add1 (tally-n m))) m))
+   (define (view m)
+     (text (format "N:~a" (tally-n m))))])
+
+(test-case "test-program-set-model! swaps state without re-running init"
+  (set-box! inits 0)
+  (define tp (make-test-program (tally 0)))
+  (test-program-press tp #\x)
+  (test-program-set-model! tp (tally 10))
+  (check-test-program-contains tp "N:10")
+  (test-program-press tp #\x)
+  (check-test-program-contains tp "N:11")
+  (check-equal? (unbox inits) 1))

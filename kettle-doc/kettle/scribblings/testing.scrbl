@@ -85,6 +85,11 @@ pseudo-terminal.
          void?]{
   Send a @racket[window-size-msg] to simulate a terminal resize.}
 
+@defproc[(test-program-set-model! [tp test-program?] [model kettle-model?]) void?]{
+  Replace the current model, e.g. to put an application into a state that
+  only an asynchronous result would reach.  Unlike creating a new test
+  program, this does not call @racket[init] again.}
+
 @subsection{State Inspection}
 
 @defproc[(test-program-model [tp test-program?]) kettle-model?]{
