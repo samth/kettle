@@ -19,13 +19,17 @@ input, and rendering.
 
 @defproc[(make-program [model kettle-model?]
                        [#:alt-screen alt-screen boolean? #f]
-                       [#:mouse mouse (or/c 'cell-motion 'all-motion #f) #f]) program?]{
+                       [#:mouse mouse (or/c 'cell-motion 'all-motion #f) #f]
+                       [#:fps-hotkey fps-hotkey boolean? #f]) program?]{
   Create a new program with the given initial model.
 
   @itemlist[
     @item{@racket[alt-screen]: if @racket[#t], use the alternate screen buffer.}
     @item{@racket[mouse]: enable mouse tracking---@racket['cell-motion] for
           button presses and drags, or @racket['all-motion] for all movement.}
+    @item{@racket[fps-hotkey]: if @racket[#t], Alt+F toggles an FPS display
+          and never reaches the model.  Off by default, so that applications
+          can bind Alt+F themselves (e.g., to forward-word).}
   ]}
 
 @defproc[(program-run [p program?]) void?]{
