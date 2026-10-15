@@ -40,7 +40,8 @@
                show-line-numbers?
                prompt
                char-limit
-               max-lines)
+               max-lines
+               scroll) ;; index of the first line the view shows
   #:transparent
   #:methods gen:kettle-model
   [(define (init ta)
@@ -57,7 +58,7 @@
                        #:prompt [prompt "> "]
                        #:char-limit [char-limit 0]
                        #:max-lines [max-lines 1000])
-  (textarea width height (vector "") 0 0 #f placeholder show-ln prompt char-limit max-lines))
+  (textarea width height (vector "") 0 0 #f placeholder show-ln prompt char-limit max-lines 0))
 
 ;; Sentinel for "not supplied" in ta-copy
 (define ta-unset (gensym 'unset))
@@ -76,12 +77,29 @@
             (textarea-show-line-numbers? ta)
             (textarea-prompt ta)
             (textarea-char-limit ta)
-            (textarea-max-lines ta)))
+            (textarea-max-lines ta)
+            (textarea-scroll ta)))
+
+;; Scroll as little as possible to bring the cursor's line into view.
+;; Keeping the old offset while the cursor stays inside the window means
+;; moving within the visible lines never shifts them.
+(define (ta-follow ta)
+  (define height (max 1 (textarea-height ta)))
+  (define row (textarea-row ta))
+  (define scroll (textarea-scroll ta))
+  (define new-scroll
+    (cond [(< row scroll) row]
+          [(>= row (+ scroll height)) (add1 (- row height))]
+          [else scroll]))
+  (if (= new-scroll scroll)
+      ta
+      (struct-copy textarea ta [scroll new-scroll])))
 
 ;;; Content management
 
 (define (textarea-set-value ta text)
-  (ta-copy ta #:lines (list->vector (split-string-by-newline text)) #:row 0 #:col 0))
+  (struct-copy textarea (ta-copy ta #:lines (list->vector (split-string-by-newline text)) #:row 0 #:col 0)
+               [scroll 0]))
 
 (define (textarea-value ta)
   (define lines (textarea-lines ta))
@@ -103,7 +121,7 @@
         str))
   (if (string=? str* "")
       ta
-      (textarea-insert-string* ta str*)))
+      (ta-follow (textarea-insert-string* ta str*))))
 
 (define (textarea-insert-string* ta str*)
   (define ta2 (ta-copy ta))
@@ -119,17 +137,7 @@
                                      (first new-lines)
                                      (substring current-line col))])
         (vector-set! lines row new-line)
-        (textarea (textarea-width ta2)
-                  (textarea-height ta2)
-                  lines
-                  row
-                  (+ col (string-length (first new-lines)))
-                  (textarea-focused? ta2)
-                  (textarea-placeholder ta2)
-                  (textarea-show-line-numbers? ta2)
-                  (textarea-prompt ta2)
-                  (textarea-char-limit ta2)
-                  (textarea-max-lines ta2)))
+        (struct-copy textarea ta2 [lines lines] [row row] [col (+ col (string-length (first new-lines)))]))
 
       ;; Multi-line insert
       (let* ([first-part (string-append (substring current-line 0 col) (first new-lines))]
@@ -147,17 +155,7 @@
         (vector-set! new-vec (+ row total-new) last-part)
         (for ([i (in-range (add1 row) old-len)])
           (vector-set! new-vec (+ i total-new) (vector-ref lines i)))
-        (textarea (textarea-width ta2)
-                  (textarea-height ta2)
-                  new-vec
-                  (+ row total-new)
-                  (string-length (last new-lines))
-                  (textarea-focused? ta2)
-                  (textarea-placeholder ta2)
-                  (textarea-show-line-numbers? ta2)
-                  (textarea-prompt ta2)
-                  (textarea-char-limit ta2)
-                  (textarea-max-lines ta2)))))
+        (struct-copy textarea ta2 [lines new-vec] [row (+ row total-new)] [col (string-length (last new-lines))]))))
 
 (define (textarea-insert-char ta ch)
   (textarea-insert-string ta (string ch)))
@@ -172,7 +170,7 @@
   (values (textarea-row ta) (textarea-col ta)))
 
 (define (textarea-reset ta)
-  (ta-copy ta #:lines (vector "") #:row 0 #:col 0))
+  (struct-copy textarea (ta-copy ta #:lines (vector "") #:row 0 #:col 0) [scroll 0]))
 
 (define (textarea-focus ta)
   (ta-copy ta #:focused? #t))
@@ -239,33 +237,13 @@
      (vector-set! new-vec (sub1 row) merged)
      (for ([i (in-range (add1 row) (vector-length lines))])
        (vector-set! new-vec (sub1 i) (vector-ref lines i)))
-     (textarea (textarea-width ta2)
-               (textarea-height ta2)
-               new-vec
-               (sub1 row)
-               new-col
-               (textarea-focused? ta2)
-               (textarea-placeholder ta2)
-               (textarea-show-line-numbers? ta2)
-               (textarea-prompt ta2)
-               (textarea-char-limit ta2)
-               (textarea-max-lines ta2))]
+     (struct-copy textarea ta2 [lines new-vec] [row (sub1 row)] [col new-col])]
     ;; In middle of line
     [(> col 0)
      (define line (vector-ref lines row))
      (define new-line (string-append (substring line 0 (sub1 col)) (substring line col)))
      (vector-set! lines row new-line)
-     (textarea (textarea-width ta2)
-               (textarea-height ta2)
-               lines
-               row
-               (sub1 col)
-               (textarea-focused? ta2)
-               (textarea-placeholder ta2)
-               (textarea-show-line-numbers? ta2)
-               (textarea-prompt ta2)
-               (textarea-char-limit ta2)
-               (textarea-max-lines ta2))]
+     (struct-copy textarea ta2 [lines lines] [row row] [col (sub1 col)])]
     [else ta]))
 
 (define (ta-delete-char-forward ta)
@@ -285,33 +263,13 @@
      (vector-set! new-vec row merged)
      (for ([i (in-range (+ row 2) (vector-length lines))])
        (vector-set! new-vec (sub1 i) (vector-ref lines i)))
-     (textarea (textarea-width ta2)
-               (textarea-height ta2)
-               new-vec
-               row
-               col
-               (textarea-focused? ta2)
-               (textarea-placeholder ta2)
-               (textarea-show-line-numbers? ta2)
-               (textarea-prompt ta2)
-               (textarea-char-limit ta2)
-               (textarea-max-lines ta2))]
+     (struct-copy textarea ta2 [lines new-vec] [row row] [col col])]
     ;; In middle of line
     [(< col (string-length (vector-ref lines row)))
      (define line (vector-ref lines row))
      (define new-line (string-append (substring line 0 col) (substring line (add1 col))))
      (vector-set! lines row new-line)
-     (textarea (textarea-width ta2)
-               (textarea-height ta2)
-               lines
-               row
-               col
-               (textarea-focused? ta2)
-               (textarea-placeholder ta2)
-               (textarea-show-line-numbers? ta2)
-               (textarea-prompt ta2)
-               (textarea-char-limit ta2)
-               (textarea-max-lines ta2))]
+     (struct-copy textarea ta2 [lines lines] [row row] [col col])]
     [else ta]))
 
 (define (ta-newline ta)
@@ -336,17 +294,7 @@
   (vector-set! new-vec (add1 row) after)
   (for ([i (in-range (add1 row) (vector-length lines))])
     (vector-set! new-vec (add1 i) (vector-ref lines i)))
-  (textarea (textarea-width ta2)
-            (textarea-height ta2)
-            new-vec
-            (add1 row)
-            0
-            (textarea-focused? ta2)
-            (textarea-placeholder ta2)
-            (textarea-show-line-numbers? ta2)
-            (textarea-prompt ta2)
-            (textarea-char-limit ta2)
-            (textarea-max-lines ta2)))
+  (struct-copy textarea ta2 [lines new-vec] [row (add1 row)] [col 0]))
 
 (define (ta-kill-to-end ta)
   (define ta2 (ta-copy ta))
@@ -355,17 +303,7 @@
   (define col (textarea-col ta2))
   (define line (vector-ref lines row))
   (vector-set! lines row (substring line 0 col))
-  (textarea (textarea-width ta2)
-            (textarea-height ta2)
-            lines
-            row
-            col
-            (textarea-focused? ta2)
-            (textarea-placeholder ta2)
-            (textarea-show-line-numbers? ta2)
-            (textarea-prompt ta2)
-            (textarea-char-limit ta2)
-            (textarea-max-lines ta2)))
+  (struct-copy textarea ta2 [lines lines] [row row] [col col]))
 
 (define (ta-kill-to-start ta)
   (define ta2 (ta-copy ta))
@@ -374,21 +312,14 @@
   (define col (textarea-col ta2))
   (define line (vector-ref lines row))
   (vector-set! lines row (substring line col))
-  (textarea (textarea-width ta2)
-            (textarea-height ta2)
-            lines
-            row
-            0
-            (textarea-focused? ta2)
-            (textarea-placeholder ta2)
-            (textarea-show-line-numbers? ta2)
-            (textarea-prompt ta2)
-            (textarea-char-limit ta2)
-            (textarea-max-lines ta2)))
+  (struct-copy textarea ta2 [lines lines] [row row] [col 0]))
 
 ;;; TEA protocol
 
 (define (textarea-update ta msg)
+  (ta-follow (textarea-update* ta msg)))
+
+(define (textarea-update* ta msg)
   (if (not (textarea-focused? ta))
       ta
       (cond
@@ -423,6 +354,7 @@
   (define col (textarea-col ta))
   (define focused? (textarea-focused? ta))
   (define placeholder (textarea-placeholder ta))
+  (define scroll (textarea-scroll ta))
 
   (define ln-width
     (if show-ln
@@ -442,7 +374,7 @@
       (apply
        vcat
        'left
-       (for/list ([i (in-range height)])
+       (for/list ([i (in-range scroll (+ scroll height))])
          (define line-text
            (if (< i (vector-length lines))
                (vector-ref lines i)
@@ -464,7 +396,8 @@
                                  (substring line-text (min (add1 col) (string-length line-text)))
                                  "")])
                  (hcat 'top (text before) (styled reverse-style (text cursor-char)) (text after)))
-               (text line-text)))
+               ;; (text "") is 0x0; keep blank lines one row high
+               (text (if (string=? line-text "") " " line-text))))
          (hcat 'top (text prompt-str) ln-img content-img)))))
 
 ;;; Helpers
